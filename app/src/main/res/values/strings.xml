@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Radio App</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="stop">Stop</string>
+    <string name="skip_buffer">Passer la pub</string>
+    <string name="select_station">Select Radio Station</string>
+    <string name="loading">Loading...</string>
+    <string name="error_loading">Error loading radio station</string>
+    <string name="no_internet">No internet connection</string>
+    <string name="widget_description">Accès rapide aux radios</string>
+</resources>

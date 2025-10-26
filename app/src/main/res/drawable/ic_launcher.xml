@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    
+    <!-- Background circle -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M24,24m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+    
+    <!-- Radio icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10.48,17.3C9.02,17.86 8,19.34 8,21v16c0,1.47 1.19,2.66 2.66,2.66h21.34C33.47,39.66 34.66,38.47 34.66,37V21c0,-1.47 -1.19,-2.66 -2.66,-2.66h-15.6l11.01,-4.45L26.17,11 10.48,17.3zM15.33,35c-2.21,0 -4,-1.79 -4,-4s1.79,-4 4,-4 4,1.79 4,4 -1.79,4 -4,4zM32,24h-2.66v-2.66h-2.67V24H8V21h24v3z"/>
+</vector>
