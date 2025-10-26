@@ -599,9 +599,6 @@ class RadioService : Service() {
         val dataReceived = formatDataReceived()
         val bitrate = formatBitrate()
 
-        // Texte de la notification avec le temps de session et les données reçues
-        val notificationText = "$sessionDuration • $dataReceived"
-
         // Convertir le logo de la station en Bitmap pour l'icône large (avec cache)
         val largeIcon: Bitmap? = currentStation?.logoResId?.let { logoResId ->
             // Utiliser le cache si le logo n'a pas changé
@@ -650,23 +647,24 @@ class RadioService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // MediaStyle pour support AOD et contrôles média
-        val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
-            .setMediaSession(mediaSession.sessionToken)
-            .setShowActionsInCompactView(0, 1) // Play/Pause et Stop en mode compact
-
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(stationName)
-            .setContentText(notificationText)
-            .setSubText("$bitrate • $audioCodec • $ipVersion") // Infos supplémentaires
+            .setContentText("⏱ $sessionDuration | 📊 $dataReceived")
+            .setSubText("⚡ $bitrate • 🎵 $audioCodec • 🌐 $ipVersion")
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Pour AOD
             .setContentIntent(openAppPendingIntent)
             .setOngoing(isPlaying)
-            .setShowWhen(false)
+            .setShowWhen(true) // Afficher l'heure
+            .setWhen(sessionStartTime) // Heure de début
+            .setUsesChronometer(isPlaying) // Chronomètre si en lecture
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setSilent(true) // Pas de son même avec PRIORITY_DEFAULT
-            .setStyle(mediaStyle)
+            .setSilent(true)
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle()
+                    .setMediaSession(mediaSession.sessionToken)
+                    .setShowActionsInCompactView(0, 1)
+            )
             .addAction(
                 if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
                 if (isPlaying) "Pause" else "Play",
