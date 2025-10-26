@@ -47,7 +47,7 @@ class RadioService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1
-        private const val CHANNEL_ID = "RadioServiceChannel"
+        private const val CHANNEL_ID = "RadioServiceChannelV2" // Nouveau canal pour AOD
 
         const val ACTION_PLAY = "action_play"
         const val ACTION_PAUSE = "action_pause"
@@ -522,13 +522,13 @@ class RadioService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Radio Service",
-            NotificationManager.IMPORTANCE_DEFAULT // Nécessaire pour AOD sur Samsung
+            "Radio Playback",
+            NotificationManager.IMPORTANCE_DEFAULT // Pour AOD et visibilité
         ).apply {
-            description = "Radio playback service"
+            description = "Contrôles de lecture radio"
             setShowBadge(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            // Désactiver les sons et vibrations malgré IMPORTANCE_DEFAULT
+            // Silencieux malgré IMPORTANCE_DEFAULT
             setSound(null, null)
             enableVibration(false)
             enableLights(false)
