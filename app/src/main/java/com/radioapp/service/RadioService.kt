@@ -523,11 +523,15 @@ class RadioService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Radio Service",
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_DEFAULT // Nécessaire pour AOD sur Samsung
         ).apply {
             description = "Radio playback service"
             setShowBadge(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            // Désactiver les sons et vibrations malgré IMPORTANCE_DEFAULT
+            setSound(null, null)
+            enableVibration(false)
+            enableLights(false)
         }
 
         val manager = getSystemService(NotificationManager::class.java)
@@ -598,15 +602,6 @@ class RadioService : Service() {
         // Texte de la notification avec le temps de session et les données reçues
         val notificationText = "$sessionDuration • $dataReceived"
 
-        // Texte étendu avec débit, version IP et codec
-        val expandedText = buildString {
-            append("⏱ Durée: $sessionDuration\n")
-            append("📊 Données: $dataReceived\n")
-            append("⚡ Débit: $bitrate\n")
-            append("🎵 Codec: $audioCodec\n")
-            append("🌐 Connexion: $ipVersion")
-        }
-
         // Convertir le logo de la station en Bitmap pour l'icône large (avec cache)
         val largeIcon: Bitmap? = currentStation?.logoResId?.let { logoResId ->
             // Utiliser le cache si le logo n'a pas changé
@@ -655,15 +650,23 @@ class RadioService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // MediaStyle pour support AOD et contrôles média
+        val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
+            .setMediaSession(mediaSession.sessionToken)
+            .setShowActionsInCompactView(0, 1) // Play/Pause et Stop en mode compact
+
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(stationName)
             .setContentText(notificationText)
+            .setSubText("$bitrate • $audioCodec • $ipVersion") // Infos supplémentaires
             .setSmallIcon(R.drawable.ic_notification)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Pour AOD
             .setContentIntent(openAppPendingIntent)
             .setOngoing(isPlaying)
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSilent(true) // Pas de son même avec PRIORITY_DEFAULT
+            .setStyle(mediaStyle)
             .addAction(
                 if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
                 if (isPlaying) "Pause" else "Play",
@@ -678,10 +681,6 @@ class RadioService : Service() {
                 android.R.drawable.ic_media_next,
                 "Passer pub",
                 skipPendingIntent
-            )
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(expandedText)
-                .setBigContentTitle(stationName)
             )
 
         // Ajouter le logo de la station comme icône large si disponible
