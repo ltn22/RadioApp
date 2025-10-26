@@ -598,15 +598,6 @@ class RadioService : Service() {
         // Texte de la notification avec le temps de session et les données reçues
         val notificationText = "$sessionDuration • $dataReceived"
 
-        // Texte étendu avec débit, version IP et codec
-        val expandedText = buildString {
-            append("⏱ Durée: $sessionDuration\n")
-            append("📊 Données: $dataReceived\n")
-            append("⚡ Débit: $bitrate\n")
-            append("🎵 Codec: $audioCodec\n")
-            append("🌐 Connexion: $ipVersion")
-        }
-
         // Convertir le logo de la station en Bitmap pour l'icône large (avec cache)
         val largeIcon: Bitmap? = currentStation?.logoResId?.let { logoResId ->
             // Utiliser le cache si le logo n'a pas changé
@@ -655,16 +646,22 @@ class RadioService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Créer un style qui combine MediaStyle (pour AOD) et BigTextStyle (pour le contenu étendu)
+        val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
+            .setMediaSession(mediaSession.sessionToken)
+            .setShowActionsInCompactView(0, 1) // Afficher Play/Pause et Stop en mode compact
+
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(stationName)
             .setContentText(notificationText)
-            .setSubText(expandedText)
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(openAppPendingIntent)
             .setOngoing(isPlaying)
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentInfo("$bitrate • $audioCodec") // Infos compactes
+            .setStyle(mediaStyle)
             .addAction(
                 if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
                 if (isPlaying) "Pause" else "Play",
@@ -679,11 +676,6 @@ class RadioService : Service() {
                 android.R.drawable.ic_media_next,
                 "Passer pub",
                 skipPendingIntent
-            )
-            .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
-                    .setMediaSession(mediaSession.sessionToken)
-                    .setShowActionsInCompactView(0, 1) // Afficher Play/Pause et Stop en mode compact
             )
 
         // Ajouter le logo de la station comme icône large si disponible
