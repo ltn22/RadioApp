@@ -155,7 +155,20 @@ class RadioService : Service() {
     }
 
     private fun initializePlayer() {
+        // Configuration optimisée du buffering pour le streaming radio
+        // Augmentation des buffers pour éviter les interruptions fréquentes
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                50000,  // minBufferMs: 50s - buffer minimum avant démarrage (défaut: 50s)
+                120000, // maxBufferMs: 120s - buffer maximum (augmenté de 50s à 120s)
+                2500,   // bufferForPlaybackMs: 2.5s - buffer pour démarrer la lecture (défaut: 2.5s)
+                10000   // bufferForPlaybackAfterRebufferMs: 10s - buffer après rebuffering (augmenté de 5s à 10s)
+            )
+            .setPrioritizeTimeOverSizeThresholds(true) // Priorité à la durée plutôt qu'à la taille
+            .build()
+
         exoPlayer = ExoPlayer.Builder(this)
+            .setLoadControl(loadControl)
             .build()
             .apply {
                 addListener(object : Player.Listener {
@@ -248,10 +261,11 @@ class RadioService : Service() {
         val mediaItem = MediaItem.fromUri(station.url)
 
         // Créer le DataSourceFactory avec le TransferListener
+        // Timeouts augmentés pour gérer les connexions lentes/instables
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("RadioApp/1.0")
-            .setConnectTimeoutMs(10000)
-            .setReadTimeoutMs(10000)
+            .setConnectTimeoutMs(20000) // Augmenté de 10s à 20s
+            .setReadTimeoutMs(20000)    // Augmenté de 10s à 20s
             .setAllowCrossProtocolRedirects(true)
             .setTransferListener(transferListener)
 
