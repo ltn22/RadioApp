@@ -271,14 +271,20 @@ class RadioService : Service() {
 
         val mediaItem = MediaItem.fromUri(station.url)
 
-        // Créer le DataSourceFactory avec le TransferListener
+        // Créer le DataSourceFactory avec détection IPv4/IPv6 et TransferListener
         // Timeouts augmentés pour gérer les connexions lentes/instables
-        val dataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("RadioApp/1.0")
-            .setConnectTimeoutMs(20000) // Augmenté de 10s à 20s
-            .setReadTimeoutMs(20000)    // Augmenté de 10s à 20s
-            .setAllowCrossProtocolRedirects(true)
-            .setTransferListener(transferListener)
+        val dataSourceFactory = com.radioapp.network.IpDetectingHttpDataSource.Factory(
+            userAgent = "RadioApp/1.0",
+            connectTimeoutMs = 20000,
+            readTimeoutMs = 20000,
+            allowCrossProtocolRedirects = true,
+            onIpVersionDetected = { detectedIpVersion ->
+                // Callback appelé quand l'IP est détectée depuis la socket active
+                ipVersion = detectedIpVersion
+                listener?.onIpVersionChanged(detectedIpVersion)
+            },
+            transferListener = transferListener
+        )
 
         val mediaSource = if (station.url.contains(".m3u8")) {
             // HLS stream
@@ -294,8 +300,7 @@ class RadioService : Service() {
         // Mettre à jour les métadonnées de la session média
         updateMediaSessionMetadata()
 
-        // Détecter la version IP utilisée pour cette station
-        detectIpVersion()
+        // La détection IP se fait automatiquement via IpDetectingHttpDataSource
     }
 
     fun play() {
@@ -497,43 +502,6 @@ class RadioService : Service() {
             }
         } catch (e: Exception) {
             audioCodec = "N/A"
-        }
-    }
-
-    private fun detectIpVersion() {
-        // Détection asynchrone de la version IP réellement utilisée
-        serviceScope.launch(Dispatchers.IO) {
-            try {
-                val stationUrl = currentStation?.url ?: return@launch
-                val url = URL(stationUrl)
-                val hostname = url.host
-
-                // Résoudre le nom de domaine pour obtenir l'adresse IP
-                val addresses = InetAddress.getAllByName(hostname)
-
-                if (addresses.isNotEmpty()) {
-                    // Prendre la première adresse (celle qui sera utilisée par défaut)
-                    val primaryAddress = addresses[0]
-
-                    ipVersion = when (primaryAddress) {
-                        is Inet6Address -> "IPv6"
-                        is Inet4Address -> "IPv4"
-                        else -> "N/A"
-                    }
-                } else {
-                    ipVersion = "N/A"
-                }
-
-                // Notifier le listener sur le Main thread
-                withContext(Dispatchers.Main) {
-                    listener?.onIpVersionChanged(ipVersion)
-                }
-            } catch (e: Exception) {
-                ipVersion = "N/A"
-                withContext(Dispatchers.Main) {
-                    listener?.onIpVersionChanged(ipVersion)
-                }
-            }
         }
     }
 
