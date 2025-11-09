@@ -231,7 +231,12 @@ class MetadataService {
             connection.readTimeout = 5000
             connection.setRequestProperty("User-Agent", "RadioApp/1.0")
             val inputStream = connection.getInputStream()
-            BitmapFactory.decodeStream(inputStream)
+            // Utiliser BitmapFactory.Options pour éviter le warning "pinning deprecated"
+            val options = BitmapFactory.Options().apply {
+                inMutable = false  // Bitmap immutable pour Android Q+
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            BitmapFactory.decodeStream(inputStream, null, options)
         } catch (e: Exception) {
             e.printStackTrace()
             null

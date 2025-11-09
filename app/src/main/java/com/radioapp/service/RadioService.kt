@@ -640,7 +640,12 @@ class RadioService : Service() {
                 cachedStationLogo
             } else {
                 // Décoder et mettre en cache le nouveau logo
-                val bitmap = BitmapFactory.decodeResource(resources, logoResId)
+                // Utiliser BitmapFactory.Options pour éviter le warning "pinning deprecated"
+                val options = BitmapFactory.Options().apply {
+                    inMutable = false  // Bitmap immutable pour Android Q+
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                val bitmap = BitmapFactory.decodeResource(resources, logoResId, options)
                 cachedStationLogo = bitmap
                 cachedStationLogoId = logoResId
                 bitmap
