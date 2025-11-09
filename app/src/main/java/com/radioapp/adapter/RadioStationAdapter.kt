@@ -18,6 +18,7 @@ class RadioStationAdapter(
 ) : RecyclerView.Adapter<RadioStationAdapter.ViewHolder>() {
 
     private var currentPlayingStationId: Int? = null
+    private var currentIpVersion: String = "N/A"
 
     companion object {
         private const val PAYLOAD_STATS_UPDATE = "stats_update"
@@ -70,8 +71,14 @@ class RadioStationAdapter(
 
     private fun updateBackground(holder: ViewHolder, station: RadioStation) {
         if (station.id == currentPlayingStationId) {
+            // Choisir la couleur en fonction de la version IP
+            val colorResId = when (currentIpVersion) {
+                "IPv4" -> R.color.active_station_ipv4  // Jaune
+                "IPv6" -> R.color.active_station_ipv6  // Violet
+                else -> android.R.color.holo_blue_light  // Bleu par défaut si N/A
+            }
             holder.itemView.setBackgroundColor(
-                ContextCompat.getColor(holder.itemView.context, android.R.color.holo_blue_light)
+                ContextCompat.getColor(holder.itemView.context, colorResId)
             )
         } else {
             holder.itemView.setBackgroundColor(
@@ -83,16 +90,23 @@ class RadioStationAdapter(
     override fun getItemCount() = stations.size
     
     fun updateStats() {
-        // Trier les stations par nombre d'utilisations (décroissant)
-        stations = stations.sortedByDescending { station ->
+        // Trier les stations par nombre d'utilisations (décroissant), puis par durée d'écoute (décroissant)
+        stations = stations.sortedWith(compareByDescending<RadioStation> { station ->
             statsManager.getPlayCount(station.id)
-        }
+        }.thenByDescending { station ->
+            statsManager.getListeningTime(station.id)
+        })
         // Use payload to only update stats, not reload images
         notifyItemRangeChanged(0, stations.size, PAYLOAD_STATS_UPDATE)
     }
-    
+
     fun setCurrentPlayingStation(stationId: Int?) {
         currentPlayingStationId = stationId
+        notifyDataSetChanged()
+    }
+
+    fun setIpVersion(ipVersion: String) {
+        currentIpVersion = ipVersion
         notifyDataSetChanged()
     }
 }

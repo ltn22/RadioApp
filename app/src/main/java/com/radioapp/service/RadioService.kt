@@ -76,9 +76,15 @@ class RadioService : Service() {
     // Information sur le codec audio
     private var audioCodec: String = "N/A"
 
+    // Métadonnées du morceau actuel
+    private var currentTrackTitle: String? = null
+
     // Cache du logo pour la notification
     private var cachedStationLogo: Bitmap? = null
     private var cachedStationLogoId: Int? = null
+
+    // Flag pour éviter les appels concurrents à skipBuffer
+    private var isSkippingBuffer = false
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -99,6 +105,7 @@ class RadioService : Service() {
         fun onBufferingUpdate(bufferedPercentage: Int)
         fun onError(message: String)
         fun onMetadataChanged(title: String?, artworkUri: String?)
+        fun onIpVersionChanged(ipVersion: String)
     }
     
     private var listener: RadioServiceListener? = null
@@ -197,7 +204,10 @@ class RadioService : Service() {
                             val entry = metadata.get(i)
                             if (entry is IcyInfo) {
                                 val title = entry.title
+                                currentTrackTitle = title
                                 listener?.onMetadataChanged(title, null)
+                                // Mettre à jour la notification avec le nouveau titre
+                                updateNotification()
                             }
                         }
                     }
@@ -253,6 +263,7 @@ class RadioService : Service() {
         averageBitrate = 0.0
         ipVersion = "N/A"
         audioCodec = "N/A"
+        currentTrackTitle = null
 
         // Vider le cache du logo pour forcer le rechargement du nouveau logo
         cachedStationLogo = null
@@ -330,6 +341,7 @@ class RadioService : Service() {
         averageBitrate = 0.0
         ipVersion = "N/A"
         audioCodec = "N/A"
+        currentTrackTitle = null
 
         // Vider le cache du logo
         cachedStationLogo = null
@@ -394,31 +406,39 @@ class RadioService : Service() {
 
     fun skipBuffer() {
         if (::exoPlayer.isInitialized && exoPlayer.isPlaying) {
+            // Vérifier si un skipBuffer est déjà en cours
+            if (isSkippingBuffer) {
+                listener?.onError("Fast-forward déjà en cours, veuillez patienter...")
+                return
+            }
+
             serviceScope.launch {
                 try {
+                    isSkippingBuffer = true
+
                     // Stratégie : Fast-forward pour vider rapidement le buffer
                     listener?.onError("Fast-forward en cours...")
-                    
+
                     // 1. Couper le son pour le fast-forward silencieux
                     val originalVolume = exoPlayer.volume
                     val originalPlaybackSpeed = exoPlayer.playbackParameters.speed
                     exoPlayer.volume = 0f
-                    
+
                     // 2. Accélérer la lecture pour "consommer" le buffer rapidement
                     // Speed 8x = 10 secondes de pub en 1.25 secondes
                     exoPlayer.setPlaybackSpeed(8.0f)
-                    
-                    // 3. Laisser le fast-forward pendant 2 secondes 
+
+                    // 3. Laisser le fast-forward pendant 2 secondes
                     // (= 16 secondes de contenu à vitesse normale)
                     delay(2000)
-                    
+
                     // 4. Revenir à la vitesse normale et remettre le son
                     exoPlayer.setPlaybackSpeed(1.0f)
                     exoPlayer.volume = originalVolume
-                    
+
                     listener?.onError("Fast-forward terminé - reprise normale")
                     listener?.onBufferingUpdate(0)
-                    
+
                 } catch (e: Exception) {
                     // En cas d'erreur, restaurer les paramètres normaux
                     try {
@@ -428,6 +448,9 @@ class RadioService : Service() {
                         // Ignore les erreurs de restauration
                     }
                     listener?.onError("Erreur fast-forward: ${e.message}")
+                } finally {
+                    // Toujours réinitialiser le flag, même en cas d'erreur
+                    isSkippingBuffer = false
                 }
             }
         }
@@ -436,6 +459,8 @@ class RadioService : Service() {
     fun isPlaying(): Boolean = if (::exoPlayer.isInitialized) exoPlayer.isPlaying else false
 
     fun getCurrentStation(): RadioStation? = currentStation
+
+    fun getIpVersion(): String = ipVersion
 
     private fun detectAudioCodec(tracks: Tracks) {
         try {
@@ -498,8 +523,16 @@ class RadioService : Service() {
                 } else {
                     ipVersion = "N/A"
                 }
+
+                // Notifier le listener sur le Main thread
+                withContext(Dispatchers.Main) {
+                    listener?.onIpVersionChanged(ipVersion)
+                }
             } catch (e: Exception) {
                 ipVersion = "N/A"
+                withContext(Dispatchers.Main) {
+                    listener?.onIpVersionChanged(ipVersion)
+                }
             }
         }
     }
@@ -613,12 +646,22 @@ class RadioService : Service() {
         val dataReceived = formatDataReceived()
         val bitrate = formatBitrate()
 
+        // Titre pour la notification : station + titre du morceau si disponible
+        val notificationTitle = if (!currentTrackTitle.isNullOrBlank()) {
+            "$stationName • $currentTrackTitle"
+        } else {
+            stationName
+        }
+
         // Texte étendu pour BigTextStyle
         val expandedText = buildString {
+            if (!currentTrackTitle.isNullOrBlank()) {
+                append("🎵 $currentTrackTitle\n")
+            }
             append("⏱ Durée: $sessionDuration\n")
             append("📊 Données: $dataReceived\n")
             append("⚡ Débit: $bitrate\n")
-            append("🎵 Codec: $audioCodec\n")
+            append("🎼 Codec: $audioCodec\n")
             append("🌐 Connexion: $ipVersion")
         }
 
@@ -671,7 +714,7 @@ class RadioService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(stationName)
+            .setContentTitle(notificationTitle)
             .setContentText("$sessionDuration • $dataReceived")
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -682,7 +725,7 @@ class RadioService : Service() {
             .setSilent(true)
             .setStyle(NotificationCompat.BigTextStyle()
                 .bigText(expandedText)
-                .setBigContentTitle(stationName)
+                .setBigContentTitle(notificationTitle)
             )
             .addAction(
                 if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
@@ -694,11 +737,31 @@ class RadioService : Service() {
                 "Stop",
                 stopPendingIntent
             )
-            .addAction(
+
+        // Si un titre est disponible, afficher le bouton Spotify, sinon afficher "Passer pub"
+        if (!currentTrackTitle.isNullOrBlank()) {
+            // Intent pour rechercher dans Spotify
+            val spotifyIntent = Intent(Intent.ACTION_VIEW).apply {
+                data = android.net.Uri.parse("https://open.spotify.com/search/${android.net.Uri.encode(currentTrackTitle)}")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            val spotifyPendingIntent = PendingIntent.getActivity(
+                this, 4, spotifyIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(
+                android.R.drawable.ic_menu_search,
+                "Spotify",
+                spotifyPendingIntent
+            )
+        } else {
+            // Pas de titre disponible, afficher le bouton "Passer pub"
+            builder.addAction(
                 android.R.drawable.ic_media_next,
                 "Passer pub",
                 skipPendingIntent
             )
+        }
 
         // Ajouter le logo de la station comme icône large si disponible
         largeIcon?.let { builder.setLargeIcon(it) }

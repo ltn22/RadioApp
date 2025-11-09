@@ -38,13 +38,24 @@ class RadioWidgetProvider : AppWidgetProvider() {
             13 to R.drawable.logo_france_musique,
             14 to R.drawable.logo_raje,
             15 to R.drawable.logo_bide_et_musique,
-            16 to R.drawable.logo_so_radio_oman, // So! Radio Oman 91.4
-            17 to R.drawable.logo_97_underground, // 97 Underground
-            18 to R.drawable.logo_pink_unicorn_radio, // Pink Unicorn Radio
-            19 to R.drawable.logo_radio_meuh, // Radio Meuh
-            20 to R.drawable.logo_ibiza_global_radio, // Ibiza Global Radio
-            21 to R.drawable.logo_wwoz, // WWOZ New Orleans
-            22 to R.drawable.logo_radio_caroline // Radio Caroline
+            16 to R.drawable.logo_so_radio_oman,
+            17 to R.drawable.logo_97_underground,
+            18 to R.drawable.logo_pink_unicorn_radio,
+            19 to R.drawable.logo_radio_meuh,
+            20 to R.drawable.logo_ibiza_global_radio,
+            21 to R.drawable.logo_wwoz,
+            22 to R.drawable.logo_radio_caroline,
+            23 to R.drawable.logo_ibiza_live_radio,
+            24 to R.drawable.logo_nts_1,
+            25 to R.drawable.logo_nts_2,
+            26 to R.drawable.logo_dublab,
+            27 to R.drawable.logo_cashmere_radio,
+            28 to R.drawable.logo_rinse_fm,
+            29 to R.drawable.logo_le_mellotron,
+            30 to R.drawable.logo_refuge_worldwide_1,
+            31 to R.drawable.logo_refuge_worldwide_2,
+            32 to R.drawable.logo_fluxfm,
+            33 to R.drawable.logo_oe1
         )
 
         fun updateWidget(context: Context, currentStationId: Int?) {
@@ -119,10 +130,14 @@ class RadioWidgetProvider : AppWidgetProvider() {
             if (savedId != -1) savedId else null
         }
 
-        // Récupérer les 3 stations les plus populaires
+        // Récupérer les 3 stations les plus populaires (par playCount, puis par listeningTime)
         val allStations = stationLogos.keys.toList()
         val topStations = allStations
-            .sortedByDescending { stationId -> statsManager.getPlayCount(stationId) }
+            .sortedWith(compareByDescending<Int> { stationId ->
+                statsManager.getPlayCount(stationId)
+            }.thenByDescending { stationId ->
+                statsManager.getListeningTime(stationId)
+            })
             .filter { it != actualCurrentStationId } // Exclure la station en cours
             .take(3)
 

@@ -23,7 +23,7 @@ class MetadataService {
     private val radioFranceStations = mapOf(
         1 to 1,    // France Inter (api id: 1)
         2 to 5,    // France Culture (api id: 5)
-        3 to 47,   // France Info (api id: 47)
+        // 3 to 47,   // France Info - désactivé, affiche uniquement le nom de la radio
         6 to 7,    // FIP (api id: 7 - station principale)
         13 to 4    // France Musique (api id: 4)
     )
@@ -183,7 +183,7 @@ class MetadataService {
                     // Essayer image_url
                     val imageUrlObj = segment.optJSONObject("image_url")
                     if (imageUrlObj != null) {
-                        imageUrlTemplate = imageUrlObj.optString("template", null)
+                        imageUrlTemplate = imageUrlObj.optString("template", "")
                     }
 
                     // Si pas trouvé, essayer synopses/image_url
@@ -191,7 +191,7 @@ class MetadataService {
                         val synopses = segment.optJSONObject("synopses")
                         val imageObj = synopses?.optJSONObject("image_url")
                         if (imageObj != null) {
-                            imageUrlTemplate = imageObj.optString("template", null)
+                            imageUrlTemplate = imageObj.optString("template", "")
                         }
                     }
 

@@ -6,4 +6,6 @@
     <color name="primary_dark">#FF1976D2</color>
     <color name="accent">#FFFF5722</color>
     <color name="skip_button_color">#FFFF9800</color>
+    <color name="active_station_ipv4">#FFFFEB3B</color>
+    <color name="active_station_ipv6">#FFD090E0</color>
 </resources>

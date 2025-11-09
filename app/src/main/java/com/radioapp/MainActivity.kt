@@ -60,7 +60,18 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         RadioStation(19, "Radio Meuh", "http://radiomeuh.ice.infomaniak.ch/radiomeuh-128.mp3", "Groove", R.drawable.logo_radio_meuh),
         RadioStation(20, "Ibiza Global Radio", "http://ibizaglobalradio.streaming-pro.com:8024/ibizaglobalradio.mp3", "Techno/House", R.drawable.logo_ibiza_global_radio),
         RadioStation(21, "WWOZ New Orleans", "https://wwoz-sc.streamguys1.com/wwoz-hi.mp3", "Jazz/Blues", R.drawable.logo_wwoz),
-        RadioStation(22, "Radio Caroline", "http://sc6.radiocaroline.net:8040/;", "Rock/Pop", R.drawable.logo_radio_caroline)
+        RadioStation(22, "Radio Caroline", "http://sc6.radiocaroline.net:8040/;", "Rock/Pop", R.drawable.logo_radio_caroline),
+        RadioStation(23, "Ibiza Live Radio", "https://uksoutha.streaming.broadcast.radio/ibiza-live-radio", "Electronic/Dance", R.drawable.logo_ibiza_live_radio),
+        RadioStation(24, "NTS 1", "https://stream-relay-geo.ntslive.net/stream", "Electronic", R.drawable.logo_nts_1),
+        RadioStation(25, "NTS 2", "https://stream-relay-geo.ntslive.net/stream2", "Electronic", R.drawable.logo_nts_2),
+        RadioStation(26, "dublab", "https://dublab.out.airtime.pro/dublab_a", "Electronic", R.drawable.logo_dublab),
+        RadioStation(27, "Cashmere Radio", "https://cashmereradio.out.airtime.pro/cashmereradio_b", "Electronic", R.drawable.logo_cashmere_radio),
+        RadioStation(28, "Rinse FM", "https://admin.stream.rinse.fm/proxy/rinse_uk/stream", "Electronic", R.drawable.logo_rinse_fm),
+        RadioStation(29, "Le Mellotron", "https://www.radioking.com/play/lemellotron-stream", "Eclectique", R.drawable.logo_le_mellotron),
+        RadioStation(30, "Refuge Worldwide 1", "https://streaming.radio.co/s3699c5e49/listen", "Electronic", R.drawable.logo_refuge_worldwide_1),
+        RadioStation(31, "Refuge Worldwide 2", "https://s4.radio.co/s8ce53d687/listen", "Electronic", R.drawable.logo_refuge_worldwide_2),
+        RadioStation(32, "FluxFM", "https://fluxmusic.api.radiosphere.io/channels/FluxFM/stream.aac", "Alternative", R.drawable.logo_fluxfm),
+        RadioStation(33, "Ö1", "https://orf-live.ors-shoutcast.at/oe1-q2a", "Culture", R.drawable.logo_oe1)
     )
 
     private val serviceConnection = object : ServiceConnection {
@@ -225,6 +236,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             metadataResetJob?.cancel()
             currentMetadataTitle = null
             metadataService.stopMonitoring()
+            binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image précédente
             binding.ivAlbumCover.visibility = android.view.View.GONE
 
             binding.tvCurrentStation.text = getString(R.string.select_station)
@@ -269,6 +281,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             metadataResetJob?.cancel()
             currentMetadataTitle = null
             metadataService.stopMonitoring()
+            binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image précédente
             binding.ivAlbumCover.visibility = android.view.View.GONE
 
             // Load new station
@@ -312,6 +325,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         delay(60000)
                         currentMetadataTitle = null
                         binding.tvCurrentStation.text = station.name
+                        binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image
                         binding.ivAlbumCover.visibility = android.view.View.GONE
                     }
                 }
@@ -338,6 +352,8 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                     // Restaurer l'indicateur visuel de la station en cours
                     if (::adapter.isInitialized) {
                         adapter.setCurrentPlayingStation(station.id)
+                        // Mettre à jour la version IP pour la couleur du fond
+                        adapter.setIpVersion(service.getIpVersion())
                     }
 
                     // Redémarrer le tracking des stats si la radio est en train de jouer
@@ -409,6 +425,12 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                     }
                 }
             }
+        }
+    }
+
+    override fun onIpVersionChanged(ipVersion: String) {
+        runOnUiThread {
+            adapter.setIpVersion(ipVersion)
         }
     }
 
