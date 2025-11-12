@@ -437,7 +437,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private fun startStatsUpdateTimer() {
         scope.launch {
             while (isActive) {
-                delay(10000) // 10 secondes
+                delay(1000) // 1 seconde
                 adapter.updateStats()
                 updateTotalStats()
 

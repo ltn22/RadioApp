@@ -368,8 +368,8 @@ class RadioService : Service() {
 
                     updateNotification()
 
-                    // Sauvegarder les données consommées toutes les 10 secondes
-                    if (counter >= 10) {
+                    // Sauvegarder les données consommées toutes les secondes
+                    if (counter >= 1) {
                         if (currentStation != null && totalBytesReceived > lastSavedBytes) {
                             val unsavedBytes = totalBytesReceived - lastSavedBytes
                             statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
