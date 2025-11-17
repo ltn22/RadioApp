@@ -83,7 +83,16 @@ class StatsManager(context: Context) {
                 delay(1000) // 1 seconde
                 if (isPlaying && currentStationId != null) {
                     // Vérifier si le player joue vraiment (pas en buffering)
-                    val isActuallyPlaying = isActuallyPlayingCallback?.invoke() ?: true
+                    // Appeler la callback sur le thread principal pour éviter les problèmes de concurrence
+                    val isActuallyPlaying = try {
+                        withContext(Dispatchers.Main) {
+                            isActuallyPlayingCallback?.invoke() ?: true
+                        }
+                    } catch (e: Exception) {
+                        // En cas d'erreur, on considère que ça ne joue pas
+                        false
+                    }
+
                     if (isActuallyPlaying) {
                         val duration = System.currentTimeMillis() - startTime
                         addListeningTime(currentStationId!!, duration)
