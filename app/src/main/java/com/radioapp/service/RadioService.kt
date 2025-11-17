@@ -331,7 +331,8 @@ class RadioService : MediaBrowserServiceCompat() {
             startSessionTimeUpdater()
         }
         exoPlayer.play()
-        // L'état sera mis à jour par le listener quand le player sera prêt
+        // Mettre à jour immédiatement le statut de lecture pour le tracking
+        statsManager.isActuallyPlaying = true
         updateMediaSessionState(true)
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
