@@ -26,6 +26,44 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     companion object {
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 123
+
+        private val radioStations = listOf(
+            RadioStation(1, "France Inter", "https://icecast.radiofrance.fr/franceinter-midfi.mp3", "Généraliste", R.drawable.logo_france_inter),
+            RadioStation(2, "France Culture", "https://icecast.radiofrance.fr/franceculture-midfi.mp3", "Culture", R.drawable.logo_france_culture),
+            RadioStation(3, "France Info", "https://icecast.radiofrance.fr/franceinfo-midfi.mp3", "Info", R.drawable.logo_france_info),
+            RadioStation(4, "RTL", "http://streaming.radio.rtl.fr/rtl-1-44-128", "Généraliste", R.drawable.logo_rtl),
+            RadioStation(5, "BBC Radio 3", "http://as-hls-ww-live.akamaized.net/pool_23461179/live/ww/bbc_radio_three/bbc_radio_three.isml/bbc_radio_three-audio%3d96000.norewind.m3u8", "Classique", R.drawable.logo_bbc_radio3),
+            RadioStation(6, "FIP", "https://icecast.radiofrance.fr/fip-midfi.mp3", "Musique", R.drawable.logo_fip),
+            RadioStation(7, "BBC Radio Scotland", "http://as-hls-ww-live.akamaized.net/pool_43322914/live/ww/bbc_radio_scotland_fm/bbc_radio_scotland_fm.isml/bbc_radio_scotland_fm-audio%3d96000.norewind.m3u8", "Scotland", R.drawable.logo_bbc_radio_scotland),
+            RadioStation(8, "Radio Nova", "http://novazz.ice.infomaniak.ch/novazz-128.mp3", "Alternative", R.drawable.logo_radio_nova),
+            RadioStation(9, "RFI", "http://live02.rfi.fr/rfimonde-64.mp3", "International", R.drawable.logo_rfi),
+            RadioStation(10, "BBC Radio 1", "http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8", "Pop", R.drawable.logo_bbc_radio1),
+            RadioStation(11, "BBC World Service", "http://as-hls-ww-live.akamaized.net/pool_87948813/live/ww/bbc_world_service/bbc_world_service.isml/bbc_world_service-audio%3d96000.norewind.m3u8", "World", R.drawable.logo_bbc_world_service),
+            RadioStation(12, "Radio Canada Première", "https://rcavliveaudio.akamaized.net/hls/live/2006635/P-2QMTL0_MTL/master.m3u8", "Montreal", R.drawable.logo_radio_canada_premiere),
+            RadioStation(13, "France Musique", "https://icecast.radiofrance.fr/francemusique-midfi.mp3", "Classique", R.drawable.logo_france_musique),
+            RadioStation(14, "Raje", "https://rajenimes.ice.infomaniak.ch/rajenimes-128.mp3", "Indé", R.drawable.logo_raje),
+            RadioStation(15, "Bide et Musique", "http://relay2.bide-et-musique.com:9100/", "Insolite", R.drawable.logo_bide_et_musique),
+            RadioStation(16, "So! Radio Oman 91.4", "https://listen-soradio.sharp-stream.com/soradio_high.mp3", "Rock", R.drawable.logo_so_radio_oman),
+            RadioStation(17, "97 Underground", "https://s6.reliastream.com/proxy/97underground?mp=/stream", "Rock/Metal", R.drawable.logo_97_underground),
+            RadioStation(18, "Pink Unicorn Radio", "https://listen6.myradio24.com/unicorn", "Rock/Metal", R.drawable.logo_pink_unicorn_radio),
+            RadioStation(19, "Radio Meuh", "http://radiomeuh.ice.infomaniak.ch/radiomeuh-128.mp3", "Groove", R.drawable.logo_radio_meuh),
+            RadioStation(20, "Ibiza Global Radio", "http://ibizaglobalradio.streaming-pro.com:8024/ibizaglobalradio.mp3", "Techno/House", R.drawable.logo_ibiza_global_radio),
+            RadioStation(21, "WWOZ New Orleans", "https://wwoz-sc.streamguys1.com/wwoz-hi.mp3", "Jazz/Blues", R.drawable.logo_wwoz),
+            RadioStation(22, "Radio Caroline", "http://sc6.radiocaroline.net:8040/;", "Rock/Pop", R.drawable.logo_radio_caroline),
+            RadioStation(23, "Ibiza Live Radio", "https://uksoutha.streaming.broadcast.radio/ibiza-live-radio", "Electronic/Dance", R.drawable.logo_ibiza_live_radio),
+            RadioStation(24, "NTS 1", "https://stream-relay-geo.ntslive.net/stream", "Electronic", R.drawable.logo_nts_1),
+            RadioStation(25, "NTS 2", "https://stream-relay-geo.ntslive.net/stream2", "Electronic", R.drawable.logo_nts_2),
+            RadioStation(26, "dublab", "https://dublab.out.airtime.pro/dublab_a", "Electronic", R.drawable.logo_dublab),
+            RadioStation(27, "Cashmere Radio", "https://cashmereradio.out.airtime.pro/cashmereradio_b", "Electronic", R.drawable.logo_cashmere_radio),
+            RadioStation(28, "Rinse FM", "https://admin.stream.rinse.fm/proxy/rinse_uk/stream", "Electronic", R.drawable.logo_rinse_fm),
+            RadioStation(29, "Le Mellotron", "https://www.radioking.com/play/lemellotron-stream", "Eclectique", R.drawable.logo_le_mellotron),
+            RadioStation(30, "Refuge Worldwide 1", "https://streaming.radio.co/s3699c5e49/listen", "Electronic", R.drawable.logo_refuge_worldwide_1),
+            RadioStation(31, "Refuge Worldwide 2", "https://s4.radio.co/s8ce53d687/listen", "Electronic", R.drawable.logo_refuge_worldwide_2),
+            RadioStation(32, "FluxFM", "https://fluxmusic.api.radiosphere.io/channels/FluxFM/stream.aac", "Alternative", R.drawable.logo_fluxfm),
+            RadioStation(33, "Ö1", "https://orf-live.ors-shoutcast.at/oe1-q2a", "Culture", R.drawable.logo_oe1)
+        )
+
+        fun getAllRadioStations(): List<RadioStation> = radioStations
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -37,42 +75,8 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private var metadataResetJob: Job? = null
     private var currentMetadataTitle: String? = null
     private val metadataService = com.radioapp.data.MetadataService()
-    
-    private val radioStations = listOf(
-        RadioStation(1, "France Inter", "https://icecast.radiofrance.fr/franceinter-midfi.mp3", "Généraliste", R.drawable.logo_france_inter),
-        RadioStation(2, "France Culture", "https://icecast.radiofrance.fr/franceculture-midfi.mp3", "Culture", R.drawable.logo_france_culture),
-        RadioStation(3, "France Info", "https://icecast.radiofrance.fr/franceinfo-midfi.mp3", "Info", R.drawable.logo_france_info),
-        RadioStation(4, "RTL", "http://streaming.radio.rtl.fr/rtl-1-44-128", "Généraliste", R.drawable.logo_rtl),
-        RadioStation(5, "BBC Radio 3", "http://as-hls-ww-live.akamaized.net/pool_23461179/live/ww/bbc_radio_three/bbc_radio_three.isml/bbc_radio_three-audio%3d96000.norewind.m3u8", "Classique", R.drawable.logo_bbc_radio3),
-        RadioStation(6, "FIP", "https://icecast.radiofrance.fr/fip-midfi.mp3", "Musique", R.drawable.logo_fip),
-        RadioStation(7, "BBC Radio Scotland", "http://as-hls-ww-live.akamaized.net/pool_43322914/live/ww/bbc_radio_scotland_fm/bbc_radio_scotland_fm.isml/bbc_radio_scotland_fm-audio%3d96000.norewind.m3u8", "Scotland", R.drawable.logo_bbc_radio_scotland),
-        RadioStation(8, "Radio Nova", "http://novazz.ice.infomaniak.ch/novazz-128.mp3", "Alternative", R.drawable.logo_radio_nova),
-        RadioStation(9, "RFI", "http://live02.rfi.fr/rfimonde-64.mp3", "International", R.drawable.logo_rfi),
-        RadioStation(10, "BBC Radio 1", "http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8", "Pop", R.drawable.logo_bbc_radio1),
-        RadioStation(11, "BBC World Service", "http://as-hls-ww-live.akamaized.net/pool_87948813/live/ww/bbc_world_service/bbc_world_service.isml/bbc_world_service-audio%3d96000.norewind.m3u8", "World", R.drawable.logo_bbc_world_service),
-        RadioStation(12, "Radio Canada Première", "https://rcavliveaudio.akamaized.net/hls/live/2006635/P-2QMTL0_MTL/master.m3u8", "Montreal", R.drawable.logo_radio_canada_premiere),
-        RadioStation(13, "France Musique", "https://icecast.radiofrance.fr/francemusique-midfi.mp3", "Classique", R.drawable.logo_france_musique),
-        RadioStation(14, "Raje", "https://rajenimes.ice.infomaniak.ch/rajenimes-128.mp3", "Indé", R.drawable.logo_raje),
-        RadioStation(15, "Bide et Musique", "http://relay2.bide-et-musique.com:9100/", "Insolite", R.drawable.logo_bide_et_musique),
-        RadioStation(16, "So! Radio Oman 91.4", "https://listen-soradio.sharp-stream.com/soradio_high.mp3", "Rock", R.drawable.logo_so_radio_oman),
-        RadioStation(17, "97 Underground", "https://s6.reliastream.com/proxy/97underground?mp=/stream", "Rock/Metal", R.drawable.logo_97_underground),
-        RadioStation(18, "Pink Unicorn Radio", "https://listen6.myradio24.com/unicorn", "Rock/Metal", R.drawable.logo_pink_unicorn_radio),
-        RadioStation(19, "Radio Meuh", "http://radiomeuh.ice.infomaniak.ch/radiomeuh-128.mp3", "Groove", R.drawable.logo_radio_meuh),
-        RadioStation(20, "Ibiza Global Radio", "http://ibizaglobalradio.streaming-pro.com:8024/ibizaglobalradio.mp3", "Techno/House", R.drawable.logo_ibiza_global_radio),
-        RadioStation(21, "WWOZ New Orleans", "https://wwoz-sc.streamguys1.com/wwoz-hi.mp3", "Jazz/Blues", R.drawable.logo_wwoz),
-        RadioStation(22, "Radio Caroline", "http://sc6.radiocaroline.net:8040/;", "Rock/Pop", R.drawable.logo_radio_caroline),
-        RadioStation(23, "Ibiza Live Radio", "https://uksoutha.streaming.broadcast.radio/ibiza-live-radio", "Electronic/Dance", R.drawable.logo_ibiza_live_radio),
-        RadioStation(24, "NTS 1", "https://stream-relay-geo.ntslive.net/stream", "Electronic", R.drawable.logo_nts_1),
-        RadioStation(25, "NTS 2", "https://stream-relay-geo.ntslive.net/stream2", "Electronic", R.drawable.logo_nts_2),
-        RadioStation(26, "dublab", "https://dublab.out.airtime.pro/dublab_a", "Electronic", R.drawable.logo_dublab),
-        RadioStation(27, "Cashmere Radio", "https://cashmereradio.out.airtime.pro/cashmereradio_b", "Electronic", R.drawable.logo_cashmere_radio),
-        RadioStation(28, "Rinse FM", "https://admin.stream.rinse.fm/proxy/rinse_uk/stream", "Electronic", R.drawable.logo_rinse_fm),
-        RadioStation(29, "Le Mellotron", "https://www.radioking.com/play/lemellotron-stream", "Eclectique", R.drawable.logo_le_mellotron),
-        RadioStation(30, "Refuge Worldwide 1", "https://streaming.radio.co/s3699c5e49/listen", "Electronic", R.drawable.logo_refuge_worldwide_1),
-        RadioStation(31, "Refuge Worldwide 2", "https://s4.radio.co/s8ce53d687/listen", "Electronic", R.drawable.logo_refuge_worldwide_2),
-        RadioStation(32, "FluxFM", "https://fluxmusic.api.radiosphere.io/channels/FluxFM/stream.aac", "Alternative", R.drawable.logo_fluxfm),
-        RadioStation(33, "Ö1", "https://orf-live.ors-shoutcast.at/oe1-q2a", "Culture", R.drawable.logo_oe1)
-    )
+
+    private val radioStations get() = Companion.radioStations
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
