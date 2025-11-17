@@ -10,11 +10,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Binder
 import android.os.IBinder
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
+import androidx.media.MediaBrowserServiceCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.MediaBrowserCompat
+import android.support.v4.media.MediaDescriptionCompat
 import java.net.Inet4Address
 import java.net.Inet6Address
 import com.google.android.exoplayer2.ExoPlayer
@@ -43,11 +47,13 @@ import com.radioapp.model.RadioStation
 import com.radioapp.data.StatsManager
 import kotlinx.coroutines.*
 
-class RadioService : Service() {
+class RadioService : MediaBrowserServiceCompat() {
 
     companion object {
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "RadioServiceChannelV2" // Nouveau canal pour AOD
+        private const val MEDIA_ROOT_ID = "root"
+        private const val MEDIA_STATIONS_ID = "stations"
 
         const val ACTION_PLAY = "action_play"
         const val ACTION_PAUSE = "action_pause"
@@ -122,10 +128,19 @@ class RadioService : Service() {
         createNotificationChannel()
         initializeMediaSession()
         initializePlayer()
+        // Set the session token for Android Auto
+        sessionToken = mediaSession.sessionToken
         // Don't start foreground here - will be done in play() to avoid Android 12+ restrictions
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onBind(intent: Intent?): IBinder? {
+        // Handle MediaBrowserService connections from Android Auto
+        if (intent?.action == "android.media.browse.MediaBrowserService") {
+            return super.onBind(intent)
+        }
+        // Handle custom local binding for MainActivity
+        return binder
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Handle media button events from lock screen / AOD
@@ -573,6 +588,23 @@ class RadioService : Service() {
                     stop()
                     stopSelf()
                 }
+
+                override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
+                    mediaId?.let { id ->
+                        try {
+                            val stationId = id.toInt()
+                            val station = getAllStations().find { it.id == stationId }
+                            station?.let {
+                                loadStation(it)
+                                play()
+                                // Increment play count
+                                statsManager.incrementPlayCount(it.id)
+                            }
+                        } catch (e: NumberFormatException) {
+                            // Invalid media ID
+                        }
+                    }
+                }
             })
 
             isActive = true
@@ -745,6 +777,68 @@ class RadioService : Service() {
     private fun updateNotification() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, createNotification())
+    }
+
+    // Android Auto / MediaBrowserService implementation
+    override fun onGetRoot(
+        clientPackageName: String,
+        clientUid: Int,
+        rootHints: Bundle?
+    ): BrowserRoot? {
+        // Allow all clients to browse the media library
+        // In production, you might want to restrict this based on clientPackageName
+        return BrowserRoot(MEDIA_ROOT_ID, null)
+    }
+
+    override fun onLoadChildren(
+        parentId: String,
+        result: Result<MutableList<MediaBrowserCompat.MediaItem>>
+    ) {
+        val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
+
+        when (parentId) {
+            MEDIA_ROOT_ID -> {
+                // Return a single category: Stations
+                val stationsDescription = MediaDescriptionCompat.Builder()
+                    .setMediaId(MEDIA_STATIONS_ID)
+                    .setTitle("Stations de radio")
+                    .setSubtitle("Toutes les stations")
+                    .build()
+                mediaItems.add(
+                    MediaBrowserCompat.MediaItem(
+                        stationsDescription,
+                        MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
+                    )
+                )
+            }
+            MEDIA_STATIONS_ID -> {
+                // Return all radio stations
+                val stations = getAllStations()
+                for (station in stations) {
+                    val description = MediaDescriptionCompat.Builder()
+                        .setMediaId(station.id.toString())
+                        .setTitle(station.name)
+                        .setSubtitle(station.genre)
+                        .setIconUri(android.net.Uri.parse("android.resource://com.radioapp/" + station.logoResId))
+                        .setMediaUri(android.net.Uri.parse(station.url))
+                        .build()
+
+                    mediaItems.add(
+                        MediaBrowserCompat.MediaItem(
+                            description,
+                            MediaBrowserCompat.MediaItem.FLAG_PLAYABLE
+                        )
+                    )
+                }
+            }
+        }
+
+        result.sendResult(mediaItems)
+    }
+
+    private fun getAllStations(): List<RadioStation> {
+        // Return the list of all available radio stations
+        return com.radioapp.MainActivity.Companion.getAllRadioStations()
     }
 
     override fun onDestroy() {
