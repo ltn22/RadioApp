@@ -84,7 +84,7 @@ class StatsManager(context: Context) {
         }
     }
     
-    private fun incrementPlayCount(stationId: Int) {
+    fun incrementPlayCount(stationId: Int) {
         val currentCount = prefs.getInt("play_count_$stationId", 0)
         prefs.edit().putInt("play_count_$stationId", currentCount + 1).apply()
     }
