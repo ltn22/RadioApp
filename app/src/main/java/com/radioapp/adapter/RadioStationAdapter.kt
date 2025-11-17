@@ -90,14 +90,20 @@ class RadioStationAdapter(
     override fun getItemCount() = stations.size
     
     fun updateStats() {
+        // Just update the displayed stats without reordering
+        // Use payload to only update stats, not reload images
+        notifyItemRangeChanged(0, stations.size, PAYLOAD_STATS_UPDATE)
+    }
+
+    fun sortStations() {
         // Trier les stations par nombre d'utilisations (décroissant), puis par durée d'écoute (décroissant)
         stations = stations.sortedWith(compareByDescending<RadioStation> { station ->
             statsManager.getPlayCount(station.id)
         }.thenByDescending { station ->
             statsManager.getListeningTime(station.id)
         })
-        // Use payload to only update stats, not reload images
-        notifyItemRangeChanged(0, stations.size, PAYLOAD_STATS_UPDATE)
+
+        notifyDataSetChanged()
     }
 
     fun setCurrentPlayingStation(stationId: Int?) {

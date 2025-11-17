@@ -246,6 +246,9 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             binding.tvCurrentStation.text = getString(R.string.select_station)
             updateTotalStats()
 
+            // Trier les stations maintenant que la lecture s'est arrêtée
+            adapter.sortStations()
+
             // Mettre à jour le widget (pas de station en cours)
             RadioWidgetProvider.updateWidget(this, null)
         }
@@ -287,6 +290,9 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             metadataService.stopMonitoring()
             binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image précédente
             binding.ivAlbumCover.visibility = android.view.View.GONE
+
+            // Trier les stations avant de lancer la nouvelle
+            adapter.sortStations()
 
             // Load new station
             service.loadStation(station)
