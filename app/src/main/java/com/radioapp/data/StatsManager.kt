@@ -12,7 +12,10 @@ class StatsManager(context: Context) {
     private var isPlaying = false
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var trackingJob: Job? = null
-    private var isActuallyPlayingCallback: (() -> Boolean)? = null
+
+    // Variable thread-safe pour indiquer si le player joue réellement
+    @Volatile
+    var isActuallyPlaying: Boolean = false
     
     fun startListening(stationId: Int) {
         if (currentStationId != stationId) {
@@ -68,11 +71,6 @@ class StatsManager(context: Context) {
     fun isListening(): Boolean {
         return isPlaying && currentStationId != null
     }
-
-    // Définir la callback pour vérifier l'état réel de lecture
-    fun setPlaybackStateCallback(callback: (() -> Boolean)?) {
-        isActuallyPlayingCallback = callback
-    }
     
     private fun startTimeTracking() {
         // Annuler le job précédent s'il existe pour éviter les doublons
@@ -81,23 +79,11 @@ class StatsManager(context: Context) {
         trackingJob = scope.launch {
             while (isPlaying && currentStationId != null) {
                 delay(1000) // 1 seconde
-                if (isPlaying && currentStationId != null) {
-                    // Vérifier si le player joue vraiment (pas en buffering)
-                    // Appeler la callback sur le thread principal pour éviter les problèmes de concurrence
-                    val isActuallyPlaying = try {
-                        withContext(Dispatchers.Main) {
-                            isActuallyPlayingCallback?.invoke() ?: true
-                        }
-                    } catch (e: Exception) {
-                        // En cas d'erreur, on considère que ça ne joue pas
-                        false
-                    }
-
-                    if (isActuallyPlaying) {
-                        val duration = System.currentTimeMillis() - startTime
-                        addListeningTime(currentStationId!!, duration)
-                        startTime = System.currentTimeMillis() // Reset start time
-                    }
+                if (isPlaying && currentStationId != null && isActuallyPlaying) {
+                    // Compter le temps seulement si le player joue vraiment (pas en buffering)
+                    val duration = System.currentTimeMillis() - startTime
+                    addListeningTime(currentStationId!!, duration)
+                    startTime = System.currentTimeMillis() // Reset start time
                 }
             }
         }

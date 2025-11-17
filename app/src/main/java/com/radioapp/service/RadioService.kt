@@ -125,12 +125,6 @@ class RadioService : MediaBrowserServiceCompat() {
     override fun onCreate() {
         super.onCreate()
         statsManager = StatsManager(this)
-
-        // Définir la callback pour vérifier l'état réel de lecture
-        statsManager.setPlaybackStateCallback {
-            ::exoPlayer.isInitialized && exoPlayer.isPlaying
-        }
-
         createNotificationChannel()
         initializeMediaSession()
         initializePlayer()
@@ -203,13 +197,18 @@ class RadioService : MediaBrowserServiceCompat() {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         when (playbackState) {
                             Player.STATE_READY -> {
+                                // Mettre à jour l'état réel de lecture pour le tracking
+                                statsManager.isActuallyPlaying = isPlaying
                                 listener?.onPlaybackStateChanged(isPlaying)
                                 updateNotification()
                             }
                             Player.STATE_BUFFERING -> {
+                                // Ne pas compter le temps pendant le buffering
+                                statsManager.isActuallyPlaying = false
                                 listener?.onPlaybackStateChanged(false)
                             }
                             Player.STATE_ENDED -> {
+                                statsManager.isActuallyPlaying = false
                                 listener?.onPlaybackStateChanged(false)
                             }
                         }
@@ -332,6 +331,7 @@ class RadioService : MediaBrowserServiceCompat() {
             startSessionTimeUpdater()
         }
         exoPlayer.play()
+        // L'état sera mis à jour par le listener quand le player sera prêt
         updateMediaSessionState(true)
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
@@ -339,6 +339,7 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     fun pause() {
+        statsManager.isActuallyPlaying = false
         exoPlayer.pause()
         updateMediaSessionState(false)
         listener?.onPlaybackStateChanged(false)
@@ -352,6 +353,7 @@ class RadioService : MediaBrowserServiceCompat() {
             statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
         }
 
+        statsManager.isActuallyPlaying = false
         exoPlayer.stop()
         updateMediaSessionState(false)
 

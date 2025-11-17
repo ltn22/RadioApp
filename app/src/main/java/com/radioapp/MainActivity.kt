@@ -84,19 +84,12 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             radioService = binder.getService()
             radioService?.setListener(this@MainActivity)
             serviceBound = true
-
-            // Définir la callback pour vérifier l'état réel de lecture
-            statsManager.setPlaybackStateCallback {
-                radioService?.isPlaying() == true
-            }
-
             updateUIState()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             radioService = null
             serviceBound = false
-            statsManager.setPlaybackStateCallback(null)
         }
     }
 
