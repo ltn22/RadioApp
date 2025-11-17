@@ -125,6 +125,12 @@ class RadioService : MediaBrowserServiceCompat() {
     override fun onCreate() {
         super.onCreate()
         statsManager = StatsManager(this)
+
+        // Définir la callback pour vérifier l'état réel de lecture
+        statsManager.setPlaybackStateCallback {
+            ::exoPlayer.isInitialized && exoPlayer.isPlaying
+        }
+
         createNotificationChannel()
         initializeMediaSession()
         initializePlayer()

@@ -12,6 +12,7 @@ class StatsManager(context: Context) {
     private var isPlaying = false
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var trackingJob: Job? = null
+    private var isActuallyPlayingCallback: (() -> Boolean)? = null
     
     fun startListening(stationId: Int) {
         if (currentStationId != stationId) {
@@ -22,8 +23,8 @@ class StatsManager(context: Context) {
         currentStationId = stationId
         startTime = System.currentTimeMillis()
         isPlaying = true
-        
-        // Démarrer la mise à jour du temps d'écoute toutes les 10 secondes
+
+        // Démarrer la mise à jour du temps d'écoute chaque seconde (si le player joue réellement)
         startTimeTracking()
     }
     
@@ -67,6 +68,11 @@ class StatsManager(context: Context) {
     fun isListening(): Boolean {
         return isPlaying && currentStationId != null
     }
+
+    // Définir la callback pour vérifier l'état réel de lecture
+    fun setPlaybackStateCallback(callback: (() -> Boolean)?) {
+        isActuallyPlayingCallback = callback
+    }
     
     private fun startTimeTracking() {
         // Annuler le job précédent s'il existe pour éviter les doublons
@@ -74,11 +80,15 @@ class StatsManager(context: Context) {
 
         trackingJob = scope.launch {
             while (isPlaying && currentStationId != null) {
-                delay(10000) // 10 secondes
+                delay(1000) // 1 seconde
                 if (isPlaying && currentStationId != null) {
-                    val duration = System.currentTimeMillis() - startTime
-                    addListeningTime(currentStationId!!, duration)
-                    startTime = System.currentTimeMillis() // Reset start time
+                    // Vérifier si le player joue vraiment (pas en buffering)
+                    val isActuallyPlaying = isActuallyPlayingCallback?.invoke() ?: true
+                    if (isActuallyPlaying) {
+                        val duration = System.currentTimeMillis() - startTime
+                        addListeningTime(currentStationId!!, duration)
+                        startTime = System.currentTimeMillis() // Reset start time
+                    }
                 }
             }
         }
