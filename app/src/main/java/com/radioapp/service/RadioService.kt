@@ -760,12 +760,12 @@ class RadioService : MediaBrowserServiceCompat() {
                 .setBigContentTitle(notificationTitle)
             )
             .addAction(
-                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying) "Pause" else "Play",
                 playPausePendingIntent
             )
             .addAction(
-                android.R.drawable.ic_delete,
+                R.drawable.ic_stop,
                 "Stop",
                 stopPendingIntent
             )
@@ -782,14 +782,14 @@ class RadioService : MediaBrowserServiceCompat() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             builder.addAction(
-                android.R.drawable.ic_menu_search,
+                R.drawable.ic_search,
                 "Spotify",
                 spotifyPendingIntent
             )
         } else {
             // Pas de titre disponible, afficher le bouton "Passer pub"
             builder.addAction(
-                android.R.drawable.ic_media_next,
+                R.drawable.ic_skip_next,
                 "Passer pub",
                 skipPendingIntent
             )
