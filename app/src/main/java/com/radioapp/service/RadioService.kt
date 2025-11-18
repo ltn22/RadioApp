@@ -59,6 +59,13 @@ class RadioService : MediaBrowserServiceCompat() {
         const val ACTION_PAUSE = "action_pause"
         const val ACTION_STOP = "action_stop"
         const val ACTION_SKIP_BUFFER = "action_skip_buffer"
+
+        // Android Auto content style constants
+        private const val CONTENT_STYLE_SUPPORTED = "android.media.browse.CONTENT_STYLE_SUPPORTED"
+        private const val CONTENT_STYLE_BROWSABLE_HINT = "android.media.browse.CONTENT_STYLE_BROWSABLE_HINT"
+        private const val CONTENT_STYLE_PLAYABLE_HINT = "android.media.browse.CONTENT_STYLE_PLAYABLE_HINT"
+        private const val CONTENT_STYLE_LIST = 1
+        private const val CONTENT_STYLE_GRID = 2
     }
 
     private lateinit var exoPlayer: ExoPlayer
@@ -787,7 +794,15 @@ class RadioService : MediaBrowserServiceCompat() {
     ): BrowserRoot? {
         // Allow all clients to browse the media library
         // In production, you might want to restrict this based on clientPackageName
-        return BrowserRoot(MEDIA_ROOT_ID, null)
+
+        // Create extras bundle for Android Auto support
+        val extras = Bundle().apply {
+            putBoolean(CONTENT_STYLE_SUPPORTED, true)
+            putInt(CONTENT_STYLE_BROWSABLE_HINT, CONTENT_STYLE_GRID)
+            putInt(CONTENT_STYLE_PLAYABLE_HINT, CONTENT_STYLE_LIST)
+        }
+
+        return BrowserRoot(MEDIA_ROOT_ID, extras)
     }
 
     override fun onLoadChildren(
