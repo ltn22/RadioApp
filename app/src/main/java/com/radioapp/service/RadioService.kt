@@ -197,18 +197,13 @@ class RadioService : MediaBrowserServiceCompat() {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         when (playbackState) {
                             Player.STATE_READY -> {
-                                // Mettre à jour l'état réel de lecture pour le tracking
-                                statsManager.isActuallyPlaying = isPlaying
                                 listener?.onPlaybackStateChanged(isPlaying)
                                 updateNotification()
                             }
                             Player.STATE_BUFFERING -> {
-                                // Ne pas compter le temps pendant le buffering
-                                statsManager.isActuallyPlaying = false
                                 listener?.onPlaybackStateChanged(false)
                             }
                             Player.STATE_ENDED -> {
-                                statsManager.isActuallyPlaying = false
                                 listener?.onPlaybackStateChanged(false)
                             }
                         }
@@ -331,8 +326,6 @@ class RadioService : MediaBrowserServiceCompat() {
             startSessionTimeUpdater()
         }
         exoPlayer.play()
-        // Mettre à jour immédiatement le statut de lecture pour le tracking
-        statsManager.isActuallyPlaying = true
         updateMediaSessionState(true)
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
@@ -340,7 +333,6 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     fun pause() {
-        statsManager.isActuallyPlaying = false
         exoPlayer.pause()
         updateMediaSessionState(false)
         listener?.onPlaybackStateChanged(false)
@@ -354,7 +346,6 @@ class RadioService : MediaBrowserServiceCompat() {
             statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
         }
 
-        statsManager.isActuallyPlaying = false
         exoPlayer.stop()
         updateMediaSessionState(false)
 

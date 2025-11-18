@@ -13,21 +13,17 @@ class StatsManager(context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var trackingJob: Job? = null
 
-    // Variable thread-safe pour indiquer si le player joue réellement
-    @Volatile
-    var isActuallyPlaying: Boolean = false
-    
     fun startListening(stationId: Int) {
         if (currentStationId != stationId) {
             // Nouvelle station, incrémenter le compteur
             incrementPlayCount(stationId)
         }
-        
+
         currentStationId = stationId
         startTime = System.currentTimeMillis()
         isPlaying = true
 
-        // Démarrer la mise à jour du temps d'écoute chaque seconde (si le player joue réellement)
+        // Démarrer la mise à jour du temps d'écoute chaque seconde
         startTimeTracking()
     }
     
@@ -79,11 +75,9 @@ class StatsManager(context: Context) {
         trackingJob = scope.launch {
             while (isPlaying && currentStationId != null) {
                 delay(1000) // 1 seconde
-                if (isPlaying && currentStationId != null && isActuallyPlaying) {
-                    // Compter le temps seulement si le player joue vraiment (pas en buffering)
-                    val duration = System.currentTimeMillis() - startTime
-                    addListeningTime(currentStationId!!, duration)
-                    startTime = System.currentTimeMillis() // Reset start time
+                // Simplement ajouter 1 seconde à chaque itération
+                if (isPlaying && currentStationId != null) {
+                    addListeningTime(currentStationId!!, 1000) // Ajouter 1 seconde
                 }
             }
         }
