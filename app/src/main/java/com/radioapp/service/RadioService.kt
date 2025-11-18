@@ -679,11 +679,31 @@ class RadioService : MediaBrowserServiceCompat() {
                 cachedStationLogo
             } else {
                 // Décoder et mettre en cache le nouveau logo
-                // Utiliser BitmapFactory.Options pour éviter le warning "pinning deprecated"
+                // Optimisé pour les notifications - taille max 256x256
                 val options = BitmapFactory.Options().apply {
                     inMutable = false  // Bitmap immutable pour Android Q+
                     inPreferredConfig = Bitmap.Config.ARGB_8888
+                    inJustDecodeBounds = true
                 }
+
+                // Premier passage pour obtenir les dimensions
+                BitmapFactory.decodeResource(resources, logoResId, options)
+
+                // Calculer le facteur d'échantillonnage pour réduire à max 256x256
+                val maxSize = 256
+                var inSampleSize = 1
+                if (options.outHeight > maxSize || options.outWidth > maxSize) {
+                    val halfHeight = options.outHeight / 2
+                    val halfWidth = options.outWidth / 2
+                    while (halfHeight / inSampleSize >= maxSize && halfWidth / inSampleSize >= maxSize) {
+                        inSampleSize *= 2
+                    }
+                }
+
+                // Deuxième passage pour décoder le bitmap réduit
+                options.inJustDecodeBounds = false
+                options.inSampleSize = inSampleSize
+
                 val bitmap = BitmapFactory.decodeResource(resources, logoResId, options)
                 cachedStationLogo = bitmap
                 cachedStationLogoId = logoResId
