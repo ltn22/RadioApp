@@ -92,10 +92,6 @@ class RadioService : MediaBrowserServiceCompat() {
     // Métadonnées du morceau actuel
     private var currentTrackTitle: String? = null
 
-    // Cache du logo pour la notification
-    private var cachedStationLogo: Bitmap? = null
-    private var cachedStationLogoId: Int? = null
-
     // Flag pour éviter les appels concurrents à skipBuffer
     private var isSkippingBuffer = false
 
@@ -287,10 +283,6 @@ class RadioService : MediaBrowserServiceCompat() {
         audioCodec = "N/A"
         currentTrackTitle = null
 
-        // Vider le cache du logo pour forcer le rechargement du nouveau logo
-        cachedStationLogo = null
-        cachedStationLogoId = null
-
         val mediaItem = MediaItem.fromUri(station.url)
 
         // Créer le DataSourceFactory avec détection IPv4/IPv6 et TransferListener
@@ -369,10 +361,6 @@ class RadioService : MediaBrowserServiceCompat() {
         ipVersion = "N/A"
         audioCodec = "N/A"
         currentTrackTitle = null
-
-        // Vider le cache du logo
-        cachedStationLogo = null
-        cachedStationLogoId = null
 
         listener?.onPlaybackStateChanged(false)
         stopForeground(true)
@@ -660,55 +648,16 @@ class RadioService : MediaBrowserServiceCompat() {
             stationName
         }
 
-        // Texte étendu pour BigTextStyle
+        // Texte détaillé avec statistiques
         val expandedText = buildString {
             if (!currentTrackTitle.isNullOrBlank()) {
                 append("🎵 $currentTrackTitle\n")
             }
-            append("⏱ Durée: $sessionDuration\n")
+            append("⏱ Durée: $sessionDuration • ")
             append("📊 Données: $dataReceived\n")
-            append("⚡ Débit: $bitrate\n")
-            append("🎼 Codec: $audioCodec\n")
-            append("🌐 Connexion: $ipVersion")
-        }
-
-        // Convertir le logo de la station en Bitmap pour l'icône large (avec cache)
-        val largeIcon: Bitmap? = currentStation?.logoResId?.let { logoResId ->
-            // Utiliser le cache si le logo n'a pas changé
-            if (cachedStationLogoId == logoResId && cachedStationLogo != null) {
-                cachedStationLogo
-            } else {
-                // Décoder et mettre en cache le nouveau logo
-                // Optimisé pour les notifications - taille max 256x256
-                val options = BitmapFactory.Options().apply {
-                    inMutable = false  // Bitmap immutable pour Android Q+
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                    inJustDecodeBounds = true
-                }
-
-                // Premier passage pour obtenir les dimensions
-                BitmapFactory.decodeResource(resources, logoResId, options)
-
-                // Calculer le facteur d'échantillonnage pour réduire à max 256x256
-                val maxSize = 256
-                var inSampleSize = 1
-                if (options.outHeight > maxSize || options.outWidth > maxSize) {
-                    val halfHeight = options.outHeight / 2
-                    val halfWidth = options.outWidth / 2
-                    while (halfHeight / inSampleSize >= maxSize && halfWidth / inSampleSize >= maxSize) {
-                        inSampleSize *= 2
-                    }
-                }
-
-                // Deuxième passage pour décoder le bitmap réduit
-                options.inJustDecodeBounds = false
-                options.inSampleSize = inSampleSize
-
-                val bitmap = BitmapFactory.decodeResource(resources, logoResId, options)
-                cachedStationLogo = bitmap
-                cachedStationLogoId = logoResId
-                bitmap
-            }
+            append("⚡ Débit: $bitrate • ")
+            append("🎼 Codec: $audioCodec • ")
+            append("🌐 $ipVersion")
         }
 
         // Intent pour ouvrir l'app
@@ -748,6 +697,7 @@ class RadioService : MediaBrowserServiceCompat() {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(notificationTitle)
             .setContentText("$sessionDuration • $dataReceived")
+            .setSubText(expandedText)
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppPendingIntent)
@@ -755,9 +705,10 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(expandedText)
-                .setBigContentTitle(notificationTitle)
+            // Utiliser MediaStyle pour les notifications multimédia
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
+                .setMediaSession(mediaSession.sessionToken)
+                .setShowActionsInCompactView(0, 1) // Afficher play/pause et stop en mode compact
             )
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
@@ -794,9 +745,6 @@ class RadioService : MediaBrowserServiceCompat() {
                 skipPendingIntent
             )
         }
-
-        // Ajouter le logo de la station comme icône large si disponible
-        largeIcon?.let { builder.setLargeIcon(it) }
 
         return builder.build()
     }
