@@ -228,6 +228,8 @@ class RadioService : MediaBrowserServiceCompat() {
                                 val title = entry.title
                                 currentTrackTitle = title
                                 listener?.onMetadataChanged(title, null)
+                                // Mettre à jour les métadonnées de la session média pour Android Auto
+                                updateMediaSessionMetadata()
                                 // Mettre à jour la notification avec le nouveau titre
                                 updateNotification()
                             }
@@ -611,9 +613,27 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     private fun updateMediaSessionMetadata() {
+        val title = if (!currentTrackTitle.isNullOrBlank()) {
+            currentTrackTitle
+        } else {
+            currentStation?.name ?: "Radio App"
+        }
+
         val metadata = MediaMetadataCompat.Builder()
-            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentStation?.name ?: "Radio App")
-            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentStation?.genre ?: "")
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentStation?.name ?: "Radio App")
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, currentStation?.genre ?: "")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, currentStation?.name ?: "")
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, currentStation?.genre ?: "")
+            .apply {
+                // Ajouter l'artwork si disponible
+                currentStation?.logoResId?.let { logoResId ->
+                    val bitmap = BitmapFactory.decodeResource(resources, logoResId)
+                    putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
+                    putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, bitmap)
+                }
+            }
             .build()
 
         mediaSession.setMetadata(metadata)
@@ -652,16 +672,10 @@ class RadioService : MediaBrowserServiceCompat() {
             stationName
         }
 
-        // Texte étendu pour BigTextStyle
-        val expandedText = buildString {
-            if (!currentTrackTitle.isNullOrBlank()) {
-                append("🎵 $currentTrackTitle\n")
-            }
-            append("⏱ Durée: $sessionDuration\n")
-            append("📊 Données: $dataReceived\n")
-            append("⚡ Débit: $bitrate\n")
-            append("🎼 Codec: $audioCodec\n")
-            append("🌐 Connexion: $ipVersion")
+        // Texte avec les infos techniques (format condensé pour affichage)
+        val notificationText = buildString {
+            append("⏱ $sessionDuration • 📊 $dataReceived • ⚡ $bitrate")
+            append("\n🎼 $audioCodec • 🌐 $ipVersion")
         }
 
         // Convertir le logo de la station en Bitmap pour l'icône large (avec cache)
@@ -739,7 +753,7 @@ class RadioService : MediaBrowserServiceCompat() {
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(notificationTitle)
-            .setContentText("$sessionDuration • $dataReceived")
+            .setContentText(notificationText)
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppPendingIntent)
@@ -747,9 +761,12 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(expandedText)
-                .setBigContentTitle(notificationTitle)
+            // MediaStyle pour Android Auto - CRITIQUE pour la compatibilité
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
+                .setMediaSession(mediaSession.sessionToken)
+                .setShowActionsInCompactView(0, 1) // Afficher play/pause et stop en mode compact
+                .setShowCancelButton(true)
+                .setCancelButtonIntent(stopPendingIntent)
             )
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
