@@ -95,10 +95,6 @@ class RadioService : MediaBrowserServiceCompat() {
     // Flag pour éviter les appels concurrents à skipBuffer
     private var isSkippingBuffer = false
 
-    // Cache pour le logo de la station (pour les notifications)
-    private var cachedStationLogo: Bitmap? = null
-    private var cachedStationLogoId: Int? = null
-
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     // TransferListener pour compter les octets transférés
@@ -678,45 +674,6 @@ class RadioService : MediaBrowserServiceCompat() {
             append("\n🎼 $audioCodec • 🌐 $ipVersion")
         }
 
-        // Convertir le logo de la station en Bitmap pour l'icône large (avec cache)
-        val largeIcon: Bitmap? = currentStation?.logoResId?.let { logoResId ->
-            // Utiliser le cache si le logo n'a pas changé
-            if (cachedStationLogoId == logoResId && cachedStationLogo != null) {
-                cachedStationLogo
-            } else {
-                // Décoder et mettre en cache le nouveau logo
-                // Optimisé pour les notifications - taille max 256x256
-                val options = BitmapFactory.Options().apply {
-                    inMutable = false  // Bitmap immutable pour Android Q+
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                    inJustDecodeBounds = true
-                }
-
-                // Premier passage pour obtenir les dimensions
-                BitmapFactory.decodeResource(resources, logoResId, options)
-
-                // Calculer le facteur d'échantillonnage pour réduire à max 256x256
-                val maxSize = 256
-                var inSampleSize = 1
-                if (options.outHeight > maxSize || options.outWidth > maxSize) {
-                    val halfHeight = options.outHeight / 2
-                    val halfWidth = options.outWidth / 2
-                    while (halfHeight / inSampleSize >= maxSize && halfWidth / inSampleSize >= maxSize) {
-                        inSampleSize *= 2
-                    }
-                }
-
-                // Deuxième passage pour décoder le bitmap réduit
-                options.inJustDecodeBounds = false
-                options.inSampleSize = inSampleSize
-
-                val bitmap = BitmapFactory.decodeResource(resources, logoResId, options)
-                cachedStationLogo = bitmap
-                cachedStationLogoId = logoResId
-                bitmap
-            }
-        }
-
         // Intent pour ouvrir l'app
         val openAppIntent = Intent(this, com.radioapp.MainActivity::class.java)
         val openAppPendingIntent = PendingIntent.getActivity(
@@ -803,9 +760,6 @@ class RadioService : MediaBrowserServiceCompat() {
                 skipPendingIntent
             )
         }
-
-        // Ajouter le logo de la station comme icône large si disponible
-        largeIcon?.let { builder.setLargeIcon(it) }
 
         return builder.build()
     }
