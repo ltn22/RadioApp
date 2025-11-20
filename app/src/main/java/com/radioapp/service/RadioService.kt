@@ -735,13 +735,10 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            // MediaStyle pour Android Auto - maintenant correctement configuré avec foregroundServiceType
-            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
-                .setMediaSession(mediaSession.sessionToken)
-                .setShowActionsInCompactView(0, 1) // Play/pause et stop en mode compact
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText(expandedText)
+                .setBigContentTitle(notificationTitle)
             )
-            // Informations étendues dans setSubText
-            .setSubText(expandedText)
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying) "Pause" else "Play",
