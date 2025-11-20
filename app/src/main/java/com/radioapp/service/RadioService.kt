@@ -727,10 +727,12 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(expandedText)
-                .setBigContentTitle(notificationTitle)
+            // MediaStyle pour Android Auto avec subText pour les infos étendues
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
+                .setMediaSession(mediaSession.sessionToken)
+                .setShowActionsInCompactView(0, 1) // Play/pause et stop en mode compact
             )
+            .setSubText(expandedText) // Infos techniques dans le subText au lieu de BigText
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying) "Pause" else "Play",
