@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Binder
@@ -170,7 +172,15 @@ class RadioService : MediaBrowserServiceCompat() {
                 // Start foreground immediately to satisfy Android 12+ requirements
                 // This will be updated when play() is called
                 try {
-                    startForeground(NOTIFICATION_ID, createNotification())
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            createNotification(),
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                        )
+                    } else {
+                        startForeground(NOTIFICATION_ID, createNotification())
+                    }
                 } catch (e: Exception) {
                     // Ignore if foreground fails here, play() will try again
                 }
@@ -329,7 +339,15 @@ class RadioService : MediaBrowserServiceCompat() {
         exoPlayer.play()
         updateMediaSessionState(true)
         val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         listener?.onPlaybackStateChanged(true)
     }
 
@@ -717,10 +735,13 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(expandedText)
-                .setBigContentTitle(notificationTitle)
+            // MediaStyle pour Android Auto - maintenant correctement configuré avec foregroundServiceType
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
+                .setMediaSession(mediaSession.sessionToken)
+                .setShowActionsInCompactView(0, 1) // Play/pause et stop en mode compact
             )
+            // Informations étendues dans setSubText
+            .setSubText(expandedText)
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying) "Pause" else "Play",
