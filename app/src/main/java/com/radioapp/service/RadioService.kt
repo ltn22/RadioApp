@@ -661,10 +661,16 @@ class RadioService : MediaBrowserServiceCompat() {
             stationName
         }
 
-        // Texte pour la notification avec toutes les infos
-        val notificationText = buildString {
-            append("$sessionDuration • $dataReceived • $bitrate")
-            append(" • $audioCodec • $ipVersion")
+        // Texte étendu pour BigTextStyle
+        val expandedText = buildString {
+            if (!currentTrackTitle.isNullOrBlank()) {
+                append("🎵 $currentTrackTitle\n")
+            }
+            append("⏱ Durée: $sessionDuration\n")
+            append("📊 Données: $dataReceived\n")
+            append("⚡ Débit: $bitrate\n")
+            append("🎼 Codec: $audioCodec\n")
+            append("🌐 Connexion: $ipVersion")
         }
 
         // Intent pour ouvrir l'app
@@ -703,7 +709,7 @@ class RadioService : MediaBrowserServiceCompat() {
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(notificationTitle)
-            .setContentText(notificationText)
+            .setContentText("$sessionDuration • $dataReceived")
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppPendingIntent)
@@ -711,10 +717,9 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            // MediaStyle pour Android Auto - configuration minimale
-            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
-                .setMediaSession(mediaSession.sessionToken)
-                .setShowActionsInCompactView(0, 1) // Play/pause et stop en mode compact
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText(expandedText)
+                .setBigContentTitle(notificationTitle)
             )
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
