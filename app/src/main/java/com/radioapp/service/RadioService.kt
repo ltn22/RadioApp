@@ -622,14 +622,7 @@ class RadioService : MediaBrowserServiceCompat() {
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, currentStation?.name ?: "")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, currentStation?.genre ?: "")
-            .apply {
-                // Ajouter l'artwork si disponible
-                currentStation?.logoResId?.let { logoResId ->
-                    val bitmap = BitmapFactory.decodeResource(resources, logoResId)
-                    putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
-                    putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, bitmap)
-                }
-            }
+            // Pas d'artwork pour éviter les warnings ImageDecoder qui empêchent les notifications
             .build()
 
         mediaSession.setMetadata(metadata)
@@ -668,20 +661,11 @@ class RadioService : MediaBrowserServiceCompat() {
             stationName
         }
 
-        // Texte étendu pour BigTextStyle
-        val expandedText = buildString {
-            if (!currentTrackTitle.isNullOrBlank()) {
-                append("🎵 $currentTrackTitle\n")
-            }
-            append("⏱ Durée: $sessionDuration\n")
-            append("📊 Données: $dataReceived\n")
-            append("⚡ Débit: $bitrate\n")
-            append("🎼 Codec: $audioCodec\n")
-            append("🌐 Connexion: $ipVersion")
+        // Texte pour la notification avec toutes les infos
+        val notificationText = buildString {
+            append("$sessionDuration • $dataReceived • $bitrate")
+            append(" • $audioCodec • $ipVersion")
         }
-
-        // Texte court pour la notification repliée
-        val notificationText = "$sessionDuration • $dataReceived"
 
         // Intent pour ouvrir l'app
         val openAppIntent = Intent(this, com.radioapp.MainActivity::class.java)
@@ -727,12 +711,11 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            // MediaStyle pour Android Auto avec subText pour les infos étendues
+            // MediaStyle pour Android Auto - configuration minimale
             .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
                 .setMediaSession(mediaSession.sessionToken)
                 .setShowActionsInCompactView(0, 1) // Play/pause et stop en mode compact
             )
-            .setSubText(expandedText) // Infos techniques dans le subText au lieu de BigText
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying) "Pause" else "Play",
