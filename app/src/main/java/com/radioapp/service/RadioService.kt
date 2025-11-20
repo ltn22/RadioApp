@@ -668,11 +668,20 @@ class RadioService : MediaBrowserServiceCompat() {
             stationName
         }
 
-        // Texte avec les infos techniques (format condensé pour affichage)
-        val notificationText = buildString {
-            append("⏱ $sessionDuration • 📊 $dataReceived • ⚡ $bitrate")
-            append("\n🎼 $audioCodec • 🌐 $ipVersion")
+        // Texte étendu pour BigTextStyle
+        val expandedText = buildString {
+            if (!currentTrackTitle.isNullOrBlank()) {
+                append("🎵 $currentTrackTitle\n")
+            }
+            append("⏱ Durée: $sessionDuration\n")
+            append("📊 Données: $dataReceived\n")
+            append("⚡ Débit: $bitrate\n")
+            append("🎼 Codec: $audioCodec\n")
+            append("🌐 Connexion: $ipVersion")
         }
+
+        // Texte court pour la notification repliée
+        val notificationText = "$sessionDuration • $dataReceived"
 
         // Intent pour ouvrir l'app
         val openAppIntent = Intent(this, com.radioapp.MainActivity::class.java)
@@ -718,12 +727,9 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            // MediaStyle pour Android Auto - CRITIQUE pour la compatibilité
-            .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
-                .setMediaSession(mediaSession.sessionToken)
-                .setShowActionsInCompactView(0, 1) // Afficher play/pause et stop en mode compact
-                .setShowCancelButton(true)
-                .setCancelButtonIntent(stopPendingIntent)
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText(expandedText)
+                .setBigContentTitle(notificationTitle)
             )
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
