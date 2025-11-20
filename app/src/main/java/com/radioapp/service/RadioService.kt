@@ -13,6 +13,7 @@ import android.graphics.BitmapFactory
 import android.os.Binder
 import android.os.IBinder
 import android.os.Bundle
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
 import androidx.media.MediaBrowserServiceCompat
@@ -52,6 +53,7 @@ import kotlinx.coroutines.*
 class RadioService : MediaBrowserServiceCompat() {
 
     companion object {
+        private const val TAG = "RadioService"
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "RadioServiceChannelV2" // Nouveau canal pour AOD
         private const val MEDIA_ROOT_ID = "root"
@@ -339,15 +341,28 @@ class RadioService : MediaBrowserServiceCompat() {
         exoPlayer.play()
         updateMediaSessionState(true)
         val notification = createNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+
+        Log.d(TAG, "=== STARTING FOREGROUND SERVICE ===")
+        Log.d(TAG, "SDK Version: ${Build.VERSION.SDK_INT}")
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                Log.d(TAG, "Calling startForeground with FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK")
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                Log.d(TAG, "Calling startForeground (old API)")
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            Log.d(TAG, "startForeground SUCCESS")
+        } catch (e: Exception) {
+            Log.e(TAG, "startForeground FAILED: ${e.message}", e)
+            throw e
         }
+        Log.d(TAG, "=== FOREGROUND SERVICE STARTED ===")
+
         listener?.onPlaybackStateChanged(true)
     }
 
@@ -666,11 +681,16 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     private fun createNotification(): Notification {
+        Log.d(TAG, "=== createNotification START ===")
         val stationName = currentStation?.name ?: "Radio App"
         val isPlaying = if (::exoPlayer.isInitialized) exoPlayer.isPlaying else false
         val sessionDuration = getSessionDuration()
         val dataReceived = formatDataReceived()
         val bitrate = formatBitrate()
+
+        Log.d(TAG, "Station: $stationName, isPlaying: $isPlaying")
+        Log.d(TAG, "MediaSession active: ${mediaSession.isActive}")
+        Log.d(TAG, "MediaSession token: ${mediaSession.sessionToken}")
 
         // Titre pour la notification : station + titre du morceau si disponible
         val notificationTitle = if (!currentTrackTitle.isNullOrBlank()) {
@@ -678,6 +698,7 @@ class RadioService : MediaBrowserServiceCompat() {
         } else {
             stationName
         }
+        Log.d(TAG, "Notification title: $notificationTitle")
 
         // Texte étendu pour BigTextStyle
         val expandedText = buildString {
@@ -725,6 +746,7 @@ class RadioService : MediaBrowserServiceCompat() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        Log.d(TAG, "Creating notification builder...")
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(notificationTitle)
             .setContentText("$sessionDuration • $dataReceived")
@@ -735,10 +757,24 @@ class RadioService : MediaBrowserServiceCompat() {
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-            .setStyle(NotificationCompat.BigTextStyle()
+
+        Log.d(TAG, "Attempting to set MediaStyle...")
+        try {
+            val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
+                .setMediaSession(mediaSession.sessionToken)
+                .setShowActionsInCompactView(0, 1)
+            builder.setStyle(mediaStyle)
+            Log.d(TAG, "MediaStyle set successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "ERROR setting MediaStyle: ${e.message}", e)
+            // Fallback to BigTextStyle
+            builder.setStyle(NotificationCompat.BigTextStyle()
                 .bigText(expandedText)
                 .setBigContentTitle(notificationTitle)
             )
+        }
+
+        builder.setSubText(expandedText)
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying) "Pause" else "Play",
@@ -775,7 +811,11 @@ class RadioService : MediaBrowserServiceCompat() {
             )
         }
 
-        return builder.build()
+        Log.d(TAG, "Building notification...")
+        val notification = builder.build()
+        Log.d(TAG, "Notification built successfully. ID: $NOTIFICATION_ID")
+        Log.d(TAG, "=== createNotification END ===")
+        return notification
     }
 
     private fun updateNotification() {
