@@ -1,8 +1,17 @@
 # RadioApp 📻
 
-Application Android de streaming radio avec 33 stations internationales, statistiques d'écoute détaillées et widget.
+Application Android de streaming radio avec 33 stations internationales, **support Android Auto**, statistiques d'écoute détaillées et widget.
 
 ## 📱 Fonctionnalités
+
+### 🚗 Android Auto
+- **Intégration native complète** : l'application apparaît automatiquement dans Android Auto
+- **Navigation intuitive** : parcourez vos 33 stations directement depuis l'écran de votre voiture
+- **Tri intelligent** : les stations sont classées par ordre d'utilisation
+- **Contrôle complet** : lecture, pause, stop et changement de station en toute sécurité
+- **Métadonnées en temps réel** : titre du morceau et logo de la station affichés
+- **Gestion audio automatique** : focus audio géré intelligemment (pas besoin de lancer Spotify d'abord !)
+- **Action personnalisée** : bouton "Passer pub" accessible depuis l'interface Android Auto
 
 ### 🎵 Stations de Radio (33)
 - **France** : France Inter, France Culture, France Info, France Musique, FIP, RTL, Radio Nova, RFI, RAJE, Bide et Musique, Radio Meuh
@@ -56,10 +65,12 @@ France Inter • Miles Davis - So What
 
 ### 🎛️ Contrôles Média
 - **MediaSession** intégrée pour contrôles système
+- **Android Auto** : interface native en voiture
 - Contrôles sur écran verrouillé
 - Support centre de contrôle Android
 - Boutons physiques du téléphone
 - Casques et écouteurs Bluetooth
+- **Focus audio automatique** : lecture sans conflit avec d'autres applications
 
 ### 📱 Widget Android
 - Affiche 4 stations en accès rapide
@@ -77,8 +88,9 @@ France Inter • Miles Davis - So What
 ## 🛠️ Technologies
 
 - **Langage** : Kotlin
-- **Audio** : ExoPlayer 2.19.1
-- **Architecture** : Service en foreground + MediaSession
+- **Audio** : ExoPlayer 2.19.1 avec gestion automatique du focus audio
+- **Architecture** : Service en foreground + MediaSession + MediaBrowserService
+- **Android Auto** : Support natif via MediaBrowserServiceCompat
 - **Streaming** : Support Icecast/Shoutcast, HLS, MP3
 - **Stockage** : SharedPreferences pour les statistiques
 - **Minimum SDK** : API 24 (Android 7.0)
@@ -135,7 +147,16 @@ app/src/main/
 
 ## 🎯 Utilisation
 
-### Lecture de base
+### 🚗 Dans Android Auto
+1. Connecter votre téléphone à Android Auto
+2. L'application "RadioApp" apparaît automatiquement dans la section Média
+3. Parcourir les 33 stations triées par fréquence d'utilisation
+4. Sélectionner une station pour lancer la lecture
+5. Contrôler la lecture avec les boutons Play/Pause/Stop
+6. Utiliser l'action "Passer pub" pour sauter les publicités
+7. Les métadonnées (titre du morceau) s'affichent en temps réel
+
+### 📱 Lecture sur téléphone
 1. Lancer l'application
 2. Sélectionner une station dans la liste
 3. La lecture démarre automatiquement
@@ -196,9 +217,16 @@ private val stationLogos = mapOf(
 - Désinstaller complètement l'app et réinstaller (pour réinitialiser le canal de notification)
 
 ### Pas de son
+- ✅ **Corrigé** : Le focus audio est maintenant géré automatiquement par ExoPlayer
 - Vérifier le volume média (pas le volume sonnerie)
 - Vérifier que l'URL du flux est accessible
 - Certains flux nécessitent une connexion stable
+
+### L'app n'apparaît pas dans Android Auto
+- Vérifier que l'app est bien installée sur le téléphone
+- Redémarrer Android Auto
+- Vérifier la connexion USB/Bluetooth avec la voiture
+- La meta-data Android Auto est déclarée au niveau application dans le manifest
 
 ### Crash au démarrage (Android 12+)
 - Le code gère déjà le `ForegroundServiceStartNotAllowedException`
@@ -246,10 +274,17 @@ Application développée avec l'assistance de **Claude Code** (Anthropic).
 
 ---
 
-**Version actuelle** : 1.1
+**Version actuelle** : 1.2
 **Dernière mise à jour** : Novembre 2024
 
-### 🆕 Nouveautés version 1.1
+### 🆕 Nouveautés version 1.2
+- ✅ **Support Android Auto complet** : navigation native dans votre voiture
+- ✅ **Gestion automatique du focus audio** : plus besoin de lancer Spotify en premier
+- ✅ Recherche iTunes pour les pochettes des métadonnées ICY
+- ✅ Affichage de la date de compilation dans l'interface
+- ✅ Bouton "Passer pub" accessible depuis Android Auto
+
+### Nouveautés version 1.1
 - ✅ Ajout de 11 nouvelles stations (total: 33)
 - ✅ Bouton Spotify dans la notification
 - ✅ Affichage du titre du morceau dans la notification
