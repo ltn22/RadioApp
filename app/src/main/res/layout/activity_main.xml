@@ -98,6 +98,16 @@
             android:text="@string/skip_buffer"
             android:backgroundTint="@color/skip_button_color" />
 
+        <TextView
+            android:id="@+id/tvBuildDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Build: "
+            android:textAlignment="center"
+            android:textSize="8sp"
+            android:textColor="#80808080"
+            android:layout_marginTop="8dp" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

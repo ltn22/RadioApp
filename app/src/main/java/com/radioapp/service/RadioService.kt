@@ -40,6 +40,8 @@ import com.google.android.exoplayer2.upstream.DefaultLoadErrorHandlingPolicy
 import com.google.android.exoplayer2.upstream.HttpDataSource
 import com.google.android.exoplayer2.LoadControl
 import com.google.android.exoplayer2.DefaultLoadControl
+import com.google.android.exoplayer2.C
+import com.google.android.exoplayer2.audio.AudioAttributes
 import java.net.InetAddress
 import java.net.URL
 import com.google.android.exoplayer2.metadata.Metadata
@@ -48,6 +50,8 @@ import com.google.android.exoplayer2.metadata.icy.IcyInfo
 import com.radioapp.R
 import com.radioapp.model.RadioStation
 import com.radioapp.data.StatsManager
+import com.radioapp.data.MetadataService
+import com.radioapp.data.TrackMetadata
 import kotlinx.coroutines.*
 
 class RadioService : MediaBrowserServiceCompat() {
@@ -63,6 +67,7 @@ class RadioService : MediaBrowserServiceCompat() {
         const val ACTION_PAUSE = "action_pause"
         const val ACTION_STOP = "action_stop"
         const val ACTION_SKIP_BUFFER = "action_skip_buffer"
+        const val ACTION_CUSTOM_SKIP = "com.radioapp.ACTION_SKIP_AD"
 
         // Android Auto content style constants
         private const val CONTENT_STYLE_SUPPORTED = "android.media.browse.CONTENT_STYLE_SUPPORTED"
@@ -76,11 +81,13 @@ class RadioService : MediaBrowserServiceCompat() {
     private var currentStation: RadioStation? = null
     private lateinit var statsManager: StatsManager
     private lateinit var mediaSession: MediaSessionCompat
+    private val metadataService = MetadataService()
 
     private var sessionStartTime: Long = 0L
     private var isSessionActive = false
     private var totalBytesReceived: Long = 0L // Pour la notification (session actuelle)
     private var lastSavedBytes: Long = 0L // Dernier montant sauvegardé
+    private var isForegroundServiceStarted = false // Track if startForeground was already called
 
     // Variables pour le calcul du débit moyen
     private var bitrateStartTime: Long = 0L
@@ -95,6 +102,7 @@ class RadioService : MediaBrowserServiceCompat() {
 
     // Métadonnées du morceau actuel
     private var currentTrackTitle: String? = null
+    private var currentArtwork: Bitmap? = null
 
     // Flag pour éviter les appels concurrents à skipBuffer
     private var isSkippingBuffer = false
@@ -118,7 +126,9 @@ class RadioService : MediaBrowserServiceCompat() {
         fun onBufferingUpdate(bufferedPercentage: Int)
         fun onError(message: String)
         fun onMetadataChanged(title: String?, artworkUri: String?)
+        fun onTrackMetadataChanged(metadata: TrackMetadata?)
         fun onIpVersionChanged(ipVersion: String)
+        fun onSearchStatus(status: String)
     }
     
     private var listener: RadioServiceListener? = null
@@ -204,8 +214,15 @@ class RadioService : MediaBrowserServiceCompat() {
             .setPrioritizeTimeOverSizeThresholds(true) // Priorité à la durée plutôt qu'à la taille
             .build()
 
+        // Configuration des attributs audio pour le focus audio
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .setUsage(C.USAGE_MEDIA)
+            .build()
+
         exoPlayer = ExoPlayer.Builder(this)
             .setLoadControl(loadControl)
+            .setAudioAttributes(audioAttributes, true) // true = handle audio focus automatically
             .build()
             .apply {
                 addListener(object : Player.Listener {
@@ -235,7 +252,68 @@ class RadioService : MediaBrowserServiceCompat() {
                             if (entry is IcyInfo) {
                                 val title = entry.title
                                 currentTrackTitle = title
+                                Log.d(TAG, "ICY Metadata received: $title")
                                 listener?.onMetadataChanged(title, null)
+
+                                // Pour les stations non gérées par MetadataService (ICY uniquement),
+                                // essayer de récupérer la pochette depuis iTunes
+                                if (title != null && title.contains(" - ")) {
+                                    Log.d(TAG, "ICY title contains ' - ', attempting iTunes search")
+                                    serviceScope.launch(Dispatchers.IO) {
+                                        try {
+                                            val parts = title.split(" - ", limit = 2)
+                                            if (parts.size == 2) {
+                                                val artist = parts[0].trim()
+                                                val trackTitle = parts[1].trim()
+                                                Log.d(TAG, "Parsed: Artist='$artist', Title='$trackTitle'")
+
+                                                if (artist.isNotEmpty() && trackTitle.isNotEmpty()) {
+                                                    Log.d(TAG, "Searching iTunes for: $artist - $trackTitle")
+                                                    // Rechercher sur iTunes
+                                                    val coverUrl = metadataService.fetchCoverFromItunesPublic(artist, trackTitle)
+                                                    Log.d(TAG, "iTunes search result: coverUrl=$coverUrl")
+
+                                                    val coverBitmap = if (coverUrl != null) {
+                                                        Log.d(TAG, "Downloading image from: $coverUrl")
+                                                        metadataService.downloadImagePublic(coverUrl)
+                                                    } else {
+                                                        Log.d(TAG, "No cover URL found on iTunes")
+                                                        null
+                                                    }
+
+                                                    if (coverBitmap != null) {
+                                                        Log.d(TAG, "Cover bitmap downloaded successfully")
+                                                        val trackMetadata = TrackMetadata(
+                                                            title = trackTitle,
+                                                            artist = artist,
+                                                            album = null,
+                                                            coverUrl = coverUrl,
+                                                            coverBitmap = coverBitmap
+                                                        )
+
+                                                        withContext(Dispatchers.Main) {
+                                                            currentArtwork = coverBitmap
+                                                            updateMediaSessionMetadata(coverBitmap)
+                                                            listener?.onTrackMetadataChanged(trackMetadata)
+                                                            updateNotification()
+                                                        }
+                                                    } else {
+                                                        Log.d(TAG, "Failed to download cover bitmap")
+                                                    }
+                                                } else {
+                                                    Log.d(TAG, "Artist or title is empty after trimming")
+                                                }
+                                            } else {
+                                                Log.d(TAG, "Failed to split title into 2 parts")
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.e(TAG, "Error fetching iTunes cover for ICY metadata", e)
+                                        }
+                                    }
+                                } else {
+                                    Log.d(TAG, "ICY title does NOT contain ' - ' or is null")
+                                }
+
                                 // Mettre à jour les métadonnées de la session média pour Android Auto
                                 updateMediaSessionMetadata()
                                 // Mettre à jour la notification avec le nouveau titre
@@ -296,6 +374,41 @@ class RadioService : MediaBrowserServiceCompat() {
         ipVersion = "N/A"
         audioCodec = "N/A"
         currentTrackTitle = null
+        currentArtwork = null
+
+        // Arrêter le monitoring précédent
+        metadataService.stopMonitoring()
+
+        // Démarrer le monitoring des métadonnées riches
+        metadataService.onSearchStatus = { status ->
+            listener?.onSearchStatus(status)
+        }
+        metadataService.startMonitoring(station.id) { metadata ->
+            if (metadata != null) {
+                currentTrackTitle = if (metadata.artist.isNotBlank()) {
+                    "${metadata.artist} - ${metadata.title}"
+                } else {
+                    metadata.title
+                }
+
+                // Mettre à jour la session média avec la pochette
+                currentArtwork = metadata.coverBitmap
+                updateMediaSessionMetadata(metadata.coverBitmap)
+
+                // Notifier l'activité
+                listener?.onTrackMetadataChanged(metadata)
+
+                // Mettre à jour la notification
+                updateNotification()
+            } else {
+                // Reset si null (fin de morceau ou erreur)
+                // On garde le titre ICY s'il existe, sinon null
+                // updateMediaSessionMetadata() gère le fallback
+            }
+        }
+
+        // Démarrer le tracking des statistiques
+        statsManager.startListening(station.id)
 
         val mediaItem = MediaItem.fromUri(station.url)
 
@@ -339,7 +452,9 @@ class RadioService : MediaBrowserServiceCompat() {
             startSessionTimeUpdater()
         }
         exoPlayer.play()
+        mediaSession.isActive = true
         updateMediaSessionState(true)
+
         val notification = createNotification()
 
         Log.d(TAG, "=== STARTING FOREGROUND SERVICE ===")
@@ -356,6 +471,7 @@ class RadioService : MediaBrowserServiceCompat() {
                 Log.d(TAG, "Calling startForeground (old API)")
                 startForeground(NOTIFICATION_ID, notification)
             }
+            isForegroundServiceStarted = true
             Log.d(TAG, "startForeground SUCCESS")
         } catch (e: Exception) {
             Log.e(TAG, "startForeground FAILED: ${e.message}", e)
@@ -388,6 +504,7 @@ class RadioService : MediaBrowserServiceCompat() {
         sessionStartTime = 0L
         totalBytesReceived = 0L
         lastSavedBytes = 0L
+        isForegroundServiceStarted = false
 
         // Réinitialiser les variables de débit, IP et codec
         bitrateStartTime = 0L
@@ -616,7 +733,11 @@ class RadioService : MediaBrowserServiceCompat() {
 
                 override fun onStop() {
                     stop()
-                    stopSelf()
+                    stopForeground(true)
+                    isSessionActive = false
+
+                    // Mettre à jour l'état de la session média
+                    updateMediaSessionState(false)
                 }
 
                 override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
@@ -635,30 +756,57 @@ class RadioService : MediaBrowserServiceCompat() {
                         }
                     }
                 }
+
+                override fun onCustomAction(action: String?, extras: Bundle?) {
+                    if (action == ACTION_CUSTOM_SKIP) {
+                        skipBuffer()
+                    }
+                }
             })
 
             isActive = true
         }
     }
 
-    private fun updateMediaSessionMetadata() {
-        val title = if (!currentTrackTitle.isNullOrBlank()) {
+    private fun updateMediaSessionMetadata(artworkBitmap: Bitmap? = null) {
+        val stationName = currentStation?.name ?: "Radio App"
+        val trackInfo = if (!currentTrackTitle.isNullOrBlank()) {
             currentTrackTitle
         } else {
-            currentStation?.name ?: "Radio App"
+            currentStation?.genre ?: ""
         }
 
-        val metadata = MediaMetadataCompat.Builder()
-            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
-            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentStation?.name ?: "Radio App")
-            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, currentStation?.genre ?: "")
-            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
-            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, currentStation?.name ?: "")
-            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, currentStation?.genre ?: "")
-            // Pas d'artwork pour éviter les warnings ImageDecoder qui empêchent les notifications
-            .build()
+        // Pour Bluetooth/Lockscreen, on garde le comportement standard (Titre = Morceau ou Station)
+        val standardTitle = if (!currentTrackTitle.isNullOrBlank()) currentTrackTitle else stationName
 
-        mediaSession.setMetadata(metadata)
+        val builder = MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, standardTitle)
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, stationName)
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, currentStation?.genre ?: "")
+
+            // Pour Android Auto : Ligne 1 = Station, Ligne 2 = Titre du morceau (ou genre)
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, stationName)
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, trackInfo)
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, "")
+
+        // Gestion de la pochette / Logo
+        if (artworkBitmap != null) {
+            builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, artworkBitmap)
+            builder.putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, artworkBitmap)
+        } else {
+            // Fallback sur le logo de la station
+            currentStation?.let { station ->
+                try {
+                    val logoBitmap = BitmapFactory.decodeResource(resources, station.logoResId)
+                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, logoBitmap)
+                    builder.putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, logoBitmap)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error loading station logo", e)
+                }
+            }
+        }
+
+        mediaSession.setMetadata(builder.build())
     }
 
     private fun updateMediaSessionState(isPlaying: Boolean) {
@@ -674,6 +822,13 @@ class RadioService : MediaBrowserServiceCompat() {
                 PlaybackStateCompat.ACTION_PLAY or
                 PlaybackStateCompat.ACTION_PAUSE or
                 PlaybackStateCompat.ACTION_STOP
+            )
+            .addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder(
+                    ACTION_CUSTOM_SKIP,
+                    "Passer pub",
+                    R.drawable.ic_skip_next
+                ).build()
             )
             .build()
 
@@ -749,32 +904,29 @@ class RadioService : MediaBrowserServiceCompat() {
         Log.d(TAG, "Creating notification builder...")
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(notificationTitle)
-            .setContentText("$sessionDuration • $dataReceived")
+            .setContentText("$sessionDuration • $dataReceived") // Texte court pour la vue réduite
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(currentArtwork ?: currentStation?.let {
+                try {
+                    BitmapFactory.decodeResource(resources, it.logoResId)
+                } catch (e: Exception) {
+                    null
+                }
+            })
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppPendingIntent)
             .setOngoing(isPlaying)
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSilent(true)
-
-        Log.d(TAG, "Attempting to set MediaStyle...")
-        try {
-            val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
-                .setMediaSession(mediaSession.sessionToken)
-                .setShowActionsInCompactView(0, 1)
-            builder.setStyle(mediaStyle)
-            Log.d(TAG, "MediaStyle set successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "ERROR setting MediaStyle: ${e.message}", e)
-            // Fallback to BigTextStyle
-            builder.setStyle(NotificationCompat.BigTextStyle()
+            // Utiliser BigTextStyle pour afficher toutes les infos techniques
+            .setStyle(NotificationCompat.BigTextStyle()
                 .bigText(expandedText)
                 .setBigContentTitle(notificationTitle)
             )
-        }
 
-        builder.setSubText(expandedText)
+        Log.d(TAG, "Notification builder created with BigTextStyle")
+        builder
             .addAction(
                 if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying) "Pause" else "Play",
@@ -819,8 +971,33 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     private fun updateNotification() {
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIFICATION_ID, createNotification())
+        Log.d(TAG, "=== updateNotification CALLED ===")
+        val notification = createNotification()
+
+        // Ne PAS appeler startForeground() plusieurs fois!
+        // Utiliser notify() pour les mises à jour après le premier startForeground()
+        if (isForegroundServiceStarted) {
+            Log.d(TAG, "Using NotificationManager.notify() to update (foreground already started)")
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.notify(NOTIFICATION_ID, notification)
+        } else {
+            Log.d(TAG, "Calling startForeground (first time)")
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    )
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
+                isForegroundServiceStarted = true
+                Log.d(TAG, "startForeground SUCCESS in updateNotification")
+            } catch (e: Exception) {
+                Log.e(TAG, "updateNotification startForeground failed: ${e.message}", e)
+            }
+        }
     }
 
     // Android Auto / MediaBrowserService implementation
@@ -829,6 +1006,7 @@ class RadioService : MediaBrowserServiceCompat() {
         clientUid: Int,
         rootHints: Bundle?
     ): BrowserRoot? {
+        Log.d(TAG, "onGetRoot: clientPackageName=$clientPackageName, clientUid=$clientUid")
         // Allow all clients to browse the media library
         // In production, you might want to restrict this based on clientPackageName
 
@@ -846,6 +1024,7 @@ class RadioService : MediaBrowserServiceCompat() {
         parentId: String,
         result: Result<MutableList<MediaBrowserCompat.MediaItem>>
     ) {
+        Log.d(TAG, "onLoadChildren: parentId=$parentId")
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
 
         when (parentId) {
@@ -864,14 +1043,14 @@ class RadioService : MediaBrowserServiceCompat() {
                 )
             }
             MEDIA_STATIONS_ID -> {
-                // Return all radio stations
-                val stations = getAllStations()
-                for (station in stations) {
+                // Return all radio stations, sorted by play count descending
+                val sortedStations = getAllStations().sortedByDescending { statsManager.getPlayCount(it.id) }
+                for (station in sortedStations) {
                     val description = MediaDescriptionCompat.Builder()
                         .setMediaId(station.id.toString())
                         .setTitle(station.name)
                         .setSubtitle(station.genre)
-                        .setIconUri(android.net.Uri.parse("android.resource://com.radioapp/" + station.logoResId))
+                        .setIconUri(android.net.Uri.parse("android.resource://${packageName}/${station.logoResId}"))
                         .setMediaUri(android.net.Uri.parse(station.url))
                         .build()
 
@@ -900,9 +1079,11 @@ class RadioService : MediaBrowserServiceCompat() {
             val unsavedBytes = totalBytesReceived - lastSavedBytes
             statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
         }
+        statsManager.stopListening() // Added this line
         mediaSession.isActive = false
         mediaSession.release()
         statsManager.cleanup()
+        metadataService.cleanup()
         serviceScope.cancel()
         exoPlayer.release()
         stopForeground(true)

@@ -19,6 +19,7 @@ import com.radioapp.databinding.ActivityMainBinding
 import com.radioapp.model.RadioStation
 import com.radioapp.service.RadioService
 import com.radioapp.data.StatsManager
+import com.radioapp.data.TrackMetadata
 import com.radioapp.widget.RadioWidgetProvider
 import kotlinx.coroutines.*
 
@@ -108,6 +109,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             bindRadioService()
             startStatsUpdateTimer()
             updateTotalStats()
+            displayBuildDate()
 
             // Gérer le lancement depuis le widget
             handleWidgetIntent(intent)
@@ -438,9 +440,41 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         }
     }
 
+    override fun onTrackMetadataChanged(metadata: TrackMetadata?) {
+        runOnUiThread {
+            if (metadata != null) {
+                // Construire le texte en évitant le tiret si l'artiste est vide
+                val displayText = if (metadata.artist.isNotBlank()) {
+                    "${metadata.artist} - ${metadata.title}"
+                } else {
+                    metadata.title
+                }
+                binding.tvCurrentStation.text = displayText
+
+                // Afficher la pochette si disponible
+                if (metadata.coverBitmap != null) {
+                    binding.ivAlbumCover.setImageBitmap(metadata.coverBitmap)
+                    binding.ivAlbumCover.visibility = android.view.View.VISIBLE
+                } else {
+                    binding.ivAlbumCover.visibility = android.view.View.GONE
+                }
+
+                // Annuler le timer précédent
+                metadataResetJob?.cancel()
+                currentMetadataTitle = displayText
+            }
+        }
+    }
+
     override fun onIpVersionChanged(ipVersion: String) {
         runOnUiThread {
             adapter.setIpVersion(ipVersion)
+        }
+    }
+
+    override fun onSearchStatus(status: String) {
+        runOnUiThread {
+            android.widget.Toast.makeText(this, status, android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -473,6 +507,25 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         val formattedTime = statsManager.formatListeningTime(totalTime)
         val formattedData = statsManager.formatDataSize(totalData)
         binding.tvTotalStats.text = "Total: $totalPlays plays • $formattedTime • $formattedData"
+    }
+
+    private fun displayBuildDate() {
+        try {
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
+
+            val buildTime = packageInfo.lastUpdateTime
+            val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+            val buildDate = dateFormat.format(java.util.Date(buildTime))
+
+            binding.tvBuildDate.text = "Build: $buildDate"
+        } catch (e: Exception) {
+            binding.tvBuildDate.text = "Build: N/A"
+        }
     }
 
     override fun onDestroy() {
