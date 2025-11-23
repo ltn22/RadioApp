@@ -108,6 +108,7 @@ class RadioService : MediaBrowserServiceCompat() {
     private var isSkippingBuffer = false
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var sessionTimeUpdaterJob: Job? = null
 
     // TransferListener pour compter les octets transférés
     private val transferListener = object : TransferListener {
@@ -449,6 +450,8 @@ class RadioService : MediaBrowserServiceCompat() {
             // Démarrer une nouvelle session
             sessionStartTime = System.currentTimeMillis()
             isSessionActive = true
+            // Annuler le timer précédent s'il existe avant d'en créer un nouveau
+            sessionTimeUpdaterJob?.cancel()
             startSessionTimeUpdater()
         }
         exoPlayer.play()
@@ -486,6 +489,7 @@ class RadioService : MediaBrowserServiceCompat() {
         exoPlayer.pause()
         updateMediaSessionState(false)
         listener?.onPlaybackStateChanged(false)
+        // Ne pas annuler le timer en pause, car la session continue
         updateNotification()
     }
 
@@ -498,6 +502,10 @@ class RadioService : MediaBrowserServiceCompat() {
 
         exoPlayer.stop()
         updateMediaSessionState(false)
+
+        // Annuler le timer de session
+        sessionTimeUpdaterJob?.cancel()
+        sessionTimeUpdaterJob = null
 
         // Réinitialiser la session
         isSessionActive = false
@@ -519,7 +527,7 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     private fun startSessionTimeUpdater() {
-        serviceScope.launch {
+        sessionTimeUpdaterJob = serviceScope.launch {
             var counter = 0
             while (isActive && isSessionActive) {
                 delay(1000) // Mettre à jour chaque seconde
