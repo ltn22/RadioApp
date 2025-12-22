@@ -17,6 +17,7 @@ data class TrackMetadata(
 class MetadataService {
     private var metadataJob: Job? = null
     private var onMetadataUpdate: ((TrackMetadata?) -> Unit)? = null
+    var onSearchStatus: ((String) -> Unit)? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // IDs des stations Radio France
@@ -241,5 +242,37 @@ class MetadataService {
             e.printStackTrace()
             null
         }
+    }
+
+    suspend fun fetchCoverFromItunesPublic(artist: String, trackTitle: String): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val searchQuery = "$artist $trackTitle".replace(" ", "+")
+                val url = URL("https://itunes.apple.com/search?term=$searchQuery&media=music&limit=1")
+                val connection = url.openConnection()
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.setRequestProperty("User-Agent", "RadioApp/1.0")
+
+                val json = connection.getInputStream().bufferedReader().use { it.readText() }
+                val data = JSONObject(json)
+
+                val results = data.optJSONArray("results")
+                if (results != null && results.length() > 0) {
+                    val firstResult = results.getJSONObject(0)
+                    firstResult.optString("artworkUrl600", null)
+                        ?: firstResult.optString("artworkUrl100", null)
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    fun downloadImagePublic(urlString: String): Bitmap? {
+        return downloadImage(urlString)
     }
 }

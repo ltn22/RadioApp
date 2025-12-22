@@ -1,0 +1,1060 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.13.0" type="baseline" client="gradle" dependencies="false" name="AGP (8.13.0)" variant="all" version="8.13.0">
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="            megabytes >= 1.0 -> String.format(&quot;%.2f MB&quot;, megabytes)"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="576"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="            kilobytes >= 1.0 -> String.format(&quot;%.2f KB&quot;, kilobytes)"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="577"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="MissingIntentFilterForMediaSearch"
+        message="Missing `intent-filter` for action `android.media.action.MEDIA_PLAY_FROM_SEARCH`."
+        errorLine1="    &lt;application"
+        errorLine2="    ^">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="12"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingOnPlayFromSearch"
+        message="This class does not override `onPlayFromSearch` from `MediaSession.Callback` The method should be overridden and implemented to support Voice search on Android Auto."
+        errorLine1="            setCallback(object : MediaSessionCompat.Callback() {"
+        errorLine2="                        ~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="733"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationChannel()`"
+        errorLine1="        val channel = NotificationChannel("
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="708"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationChannel#setDescription`"
+        errorLine1="            description = &quot;Contrôles de lecture radio&quot;"
+        errorLine2="            ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="713"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationChannel#setShowBadge`"
+        errorLine1="            setShowBadge(false)"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="714"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationChannel#setLockscreenVisibility`"
+        errorLine1="            lockscreenVisibility = Notification.VISIBILITY_PUBLIC"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="715"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationChannel#setSound`"
+        errorLine1="            setSound(null, null)"
+        errorLine2="            ~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="717"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationChannel#enableVibration`"
+        errorLine1="            enableVibration(false)"
+        errorLine2="            ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="718"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationChannel#enableLights`"
+        errorLine1="            enableLights(false)"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="719"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26 (current min is 24): `android.app.NotificationManager#createNotificationChannel`"
+        errorLine1="        manager.createNotificationChannel(channel)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="723"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk = 34"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="13"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of `compileSdkVersion` than 34 is available: 36"
+        errorLine1="    compileSdk = 34"
+        errorLine2="    ~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="8"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.12.0 is available: 1.17.0"
+        errorLine1="    implementation(&quot;androidx.core:core-ktx:1.12.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="45"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.appcompat:appcompat than 1.6.1 is available: 1.7.1"
+        errorLine1="    implementation(&quot;androidx.appcompat:appcompat:1.6.1&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="46"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.material:material than 1.11.0 is available: 1.13.0"
+        errorLine1="    implementation(&quot;com.google.android.material:material:1.11.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="47"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.constraintlayout:constraintlayout than 2.1.4 is available: 2.2.1"
+        errorLine1="    implementation(&quot;androidx.constraintlayout:constraintlayout:2.1.4&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="48"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-ktx than 2.7.0 is available: 2.10.0"
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="49"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-livedata-ktx than 2.7.0 is available: 2.10.0"
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-livedata-ktx:2.7.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="50"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.recyclerview:recyclerview than 1.3.2 is available: 1.4.0"
+        errorLine1="    implementation(&quot;androidx.recyclerview:recyclerview:1.3.2&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="51"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media:media than 1.7.0 is available: 1.7.1"
+        errorLine1="    implementation(&quot;androidx.media:media:1.7.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="53"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media:media than 1.7.0 is available: 1.7.1"
+        errorLine1="    implementation(&quot;androidx.media:media:1.7.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="61"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.ext:junit than 1.1.5 is available: 1.3.0"
+        errorLine1="    androidTestImplementation(&quot;androidx.test.ext:junit:1.1.5&quot;)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="67"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.5.1 is available: 3.7.0"
+        errorLine1="    androidTestImplementation(&quot;androidx.test.espresso:espresso-core:3.5.1&quot;)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="68"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.7.3 is available: 1.10.2"
+        errorLine1="    implementation(&quot;org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="64"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="SwitchIntDef"
+        message="Switch statement on an `int` with known associated constant missing case `Player.STATE_IDLE`"
+        errorLine1="                        when (playbackState) {"
+        errorLine2="                        ~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="231"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="ExportedService"
+        message="Exported service does not require permission"
+        errorLine1="        &lt;service"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="40"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="        notifyDataSetChanged()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/adapter/RadioStationAdapter.kt"
+            line="106"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="        notifyDataSetChanged()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/adapter/RadioStationAdapter.kt"
+            line="111"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="        notifyDataSetChanged()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/adapter/RadioStationAdapter.kt"
+            line="116"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="DisableBaselineAlignment"
+        message="Set `android:baselineAligned=&quot;false&quot;` on this element for better performance"
+        errorLine1="&lt;LinearLayout xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2=" ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_layout.xml"
+            line="2"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `#CC000000` with a theme that also paints a background (inferred theme is `@style/Theme.RadioApp`)"
+        errorLine1="    android:background=&quot;#CC000000&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_layout.xml"
+            line="6"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.black` appears to be unused"
+        errorLine1="    &lt;color name=&quot;black&quot;>#FF000000&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="3"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.white` appears to be unused"
+        errorLine1="    &lt;color name=&quot;white&quot;>#FFFFFFFF&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="4"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.mipmap.ic_launcher` appears to be unused"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_launcher_background` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_launcher_background.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_launcher_foreground` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_launcher_foreground.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.mipmap.ic_launcher_round` appears to be unused"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.station_background` appears to be unused"
+        errorLine1="&lt;shape xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/station_background.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.loading` appears to be unused"
+        errorLine1="    &lt;string name=&quot;loading&quot;>Loading...&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="9"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.error_loading` appears to be unused"
+        errorLine1="    &lt;string name=&quot;error_loading&quot;>Error loading radio station&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="10"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.no_internet` appears to be unused"
+        errorLine1="    &lt;string name=&quot;no_internet&quot;>No internet connection&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="11"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;loading&quot;>Loading...&lt;/string>"
+        errorLine2="                           ~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="9"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="MonochromeLauncherIcon"
+        message="The application adaptive icon is missing a monochrome tag"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_97_underground.jpg` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_97_underground.jpg"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_bbc_radio1.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_bbc_radio1.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_bbc_radio3.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_bbc_radio3.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_bbc_radio_scotland.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_bbc_radio_scotland.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_bbc_world_service.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_bbc_world_service.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_bide_et_musique.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_bide_et_musique.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_cashmere_radio.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_cashmere_radio.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_dublab.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_dublab.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_fip.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_fip.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_fluxfm.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_fluxfm.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_france_culture.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_france_culture.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_france_info.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_france_info.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_france_inter.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_france_inter.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_france_musique.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_france_musique.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_ibiza_global_radio.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_ibiza_global_radio.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_ibiza_live_radio.webp` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_ibiza_live_radio.webp"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_le_mellotron.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_le_mellotron.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_nts_1.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_nts_1.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_nts_2.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_nts_2.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_oe1.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_oe1.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_pink_unicorn_radio.jpg` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_pink_unicorn_radio.jpg"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_radio_canada_premiere.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_radio_canada_premiere.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_radio_caroline.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_radio_caroline.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_radio_meuh.jpg` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_radio_meuh.jpg"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_radio_nova.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_radio_nova.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_raje.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_raje.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_refuge_worldwide_1.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_refuge_worldwide_1.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_refuge_worldwide_2.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_refuge_worldwide_2.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_rfi.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_rfi.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_rinse_fm.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_rinse_fm.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_rtl.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_rtl.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_so_radio_oman.png` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_so_radio_oman.png"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/logo_wwoz.jpg` in densityless folder">
+        <location
+            file="src/main/res/drawable/logo_wwoz.jpg"/>
+    </issue>
+
+    <issue
+        id="ButtonStyle"
+        message="Buttons in button bars should be borderless; use `style=&quot;?android:attr/buttonBarButtonStyle&quot;` (and `?android:attr/buttonBarStyle` on the parent)"
+        errorLine1="            &lt;Button"
+        errorLine2="             ~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="66"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="ButtonStyle"
+        message="Buttons in button bars should be borderless; use `style=&quot;?android:attr/buttonBarButtonStyle&quot;` (and `?android:attr/buttonBarStyle` on the parent)"
+        errorLine1="            &lt;Button"
+        errorLine2="             ~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="74"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="ButtonStyle"
+        message="Buttons in button bars should be borderless; use `style=&quot;?android:attr/buttonBarButtonStyle&quot;` (and `?android:attr/buttonBarStyle` on the parent)"
+        errorLine1="            &lt;Button"
+        errorLine2="             ~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="83"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `8sp`"
+        errorLine1="            android:textSize=&quot;8sp&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="107"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="                android:textSize=&quot;10sp&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/item_radio_station.xml"
+            line="40"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                data = android.net.Uri.parse(&quot;https://open.spotify.com/search/${android.net.Uri.encode(currentTrackTitle)}&quot;)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="953"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                data = android.net.Uri.parse(&quot;https://open.spotify.com/search/${android.net.Uri.encode(currentTrackTitle)}&quot;)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="953"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                        .setIconUri(android.net.Uri.parse(&quot;android.resource://${packageName}/${station.logoResId}&quot;))"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="1061"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                        .setMediaUri(android.net.Uri.parse(station.url))"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/service/RadioService.kt"
+            line="1062"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                prefs.edit().putInt(PREF_CURRENT_STATION, actualStationId ?: -1).apply()"
+        errorLine2="                ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/widget/RadioWidgetProvider.kt"
+            line="103"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putInt(&quot;play_count_$stationId&quot;, currentCount + 1).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/data/StatsManager.kt"
+            line="88"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putLong(&quot;listening_time_$stationId&quot;, currentTime + duration).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/data/StatsManager.kt"
+            line="93"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putLong(&quot;data_consumed_$stationId&quot;, currentData + bytes).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/data/StatsManager.kt"
+            line="106"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        binding.tvTotalStats.text = &quot;Total: $totalPlays plays • $formattedTime • $formattedData&quot;"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/MainActivity.kt"
+            line="509"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        binding.tvTotalStats.text = &quot;Total: $totalPlays plays • $formattedTime • $formattedData&quot;"
+        errorLine2="                                     ~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/MainActivity.kt"
+            line="509"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        binding.tvTotalStats.text = &quot;Total: $totalPlays plays • $formattedTime • $formattedData&quot;"
+        errorLine2="                                                       ~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/MainActivity.kt"
+            line="509"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="            binding.tvBuildDate.text = &quot;Build: $buildDate&quot;"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/MainActivity.kt"
+            line="525"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            binding.tvBuildDate.text = &quot;Build: $buildDate&quot;"
+        errorLine2="                                        ~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/MainActivity.kt"
+            line="525"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="            binding.tvBuildDate.text = &quot;Build: N/A&quot;"
+        errorLine2="                                        ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/MainActivity.kt"
+            line="527"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        holder.tvStationStats.text = &quot;$playCount plays\n$formattedTime&quot;"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/adapter/RadioStationAdapter.kt"
+            line="69"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        holder.tvStationStats.text = &quot;$playCount plays\n$formattedTime&quot;"
+        errorLine2="                                                ~~~~~~">
+        <location
+            file="src/main/java/com/radioapp/adapter/RadioStationAdapter.kt"
+            line="69"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Album cover&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Album cover&quot; />"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="39"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Total: 0 plays • 0s&quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Total: 0 plays • 0s&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="55"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Build: &quot;, should use `@string` resource"
+        errorLine1="            android:text=&quot;Build: &quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="105"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Logo de la radio&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Logo de la radio&quot; />"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/item_radio_station.xml"
+            line="26"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;0 plays\n0s&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;0 plays\n0s&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/item_radio_station.xml"
+            line="39"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Station 1&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Station 1&quot; />"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_layout.xml"
+            line="26"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Station 2&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Station 2&quot; />"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_layout.xml"
+            line="46"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Station 3&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Station 3&quot; />"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_layout.xml"
+            line="66"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Station 4&quot;, should use `@string` resource"
+        errorLine1="            android:contentDescription=&quot;Station 4&quot; />"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_layout.xml"
+            line="86"
+            column="13"/>
+    </issue>
+
+</issues>
