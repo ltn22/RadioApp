@@ -10,8 +10,6 @@ class StatsManager(context: Context) {
     private var currentStationId: Int? = null
     private var startTime: Long = 0
     private var isPlaying = false
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var trackingJob: Job? = null
 
     fun startListening(stationId: Int) {
         if (currentStationId != stationId) {
@@ -22,9 +20,6 @@ class StatsManager(context: Context) {
         currentStationId = stationId
         startTime = System.currentTimeMillis()
         isPlaying = true
-
-        // Démarrer la mise à jour du temps d'écoute chaque seconde
-        startTimeTracking()
     }
     
     fun stopListening() {
@@ -47,7 +42,6 @@ class StatsManager(context: Context) {
     fun resumeListening() {
         startTime = System.currentTimeMillis()
         isPlaying = true
-        startTimeTracking()
     }
 
     // Restaurer le tracking après une rotation d'écran sans incrémenter le play count
@@ -60,7 +54,6 @@ class StatsManager(context: Context) {
         currentStationId = stationId
         startTime = System.currentTimeMillis()
         isPlaying = true
-        startTimeTracking()
     }
 
     // Vérifier si le tracking est actif
@@ -68,20 +61,7 @@ class StatsManager(context: Context) {
         return isPlaying && currentStationId != null
     }
     
-    private fun startTimeTracking() {
-        // Annuler le job précédent s'il existe pour éviter les doublons
-        trackingJob?.cancel()
 
-        trackingJob = scope.launch {
-            while (isPlaying && currentStationId != null) {
-                delay(1000) // 1 seconde
-                // Simplement ajouter 1 seconde à chaque itération
-                if (isPlaying && currentStationId != null) {
-                    addListeningTime(currentStationId!!, 1000) // Ajouter 1 seconde
-                }
-            }
-        }
-    }
     
     fun incrementPlayCount(stationId: Int) {
         val currentCount = prefs.getInt("play_count_$stationId", 0)
@@ -98,7 +78,12 @@ class StatsManager(context: Context) {
     }
     
     fun getListeningTime(stationId: Int): Long {
-        return prefs.getLong("listening_time_$stationId", 0L)
+        val storedTime = prefs.getLong("listening_time_$stationId", 0L)
+        return if (isPlaying && currentStationId == stationId) {
+            storedTime + (System.currentTimeMillis() - startTime)
+        } else {
+            storedTime
+        }
     }
 
     fun addDataConsumed(stationId: Int, bytes: Long) {
@@ -149,6 +134,6 @@ class StatsManager(context: Context) {
     }
 
     fun cleanup() {
-        scope.cancel()
+        // scope.cancel()
     }
 }
