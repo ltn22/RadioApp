@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.radioapp"
+        applicationId = "com.radioapp.rdmr"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
