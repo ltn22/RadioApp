@@ -79,6 +79,14 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private var metadataResetJob: Job? = null
     private var currentMetadataTitle: String? = null
     private val metadataService = com.radioapp.data.MetadataService()
+    private var isFranceCultureAlarmSet = false
+    private var alarmHour = 6
+    private var alarmMinute = 30
+    
+    // Add imports for Dialog
+    // import android.app.AlertDialog
+    // import android.widget.EditText
+    // import android.text.InputType
 
     private val radioStations get() = Companion.radioStations
 
@@ -210,9 +218,19 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             statsManager.getPlayCount(station.id)
         }
         
-        adapter = RadioStationAdapter(sortedStations, statsManager) { station ->
+        adapter = RadioStationAdapter(radioStations, statsManager, { station ->
             selectStation(station)
-        }
+        }, { isSet ->
+            isFranceCultureAlarmSet = isSet
+            if (isSet) {
+                val timeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
+                Toast.makeText(this, "Réveil France Culture activé pour $timeStr", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Réveil désactivé", Toast.LENGTH_SHORT).show()
+            }
+        }, {
+            showTimeEditDialog()
+        })
         
         binding.rvRadioStations.apply {
             layoutManager = GridLayoutManager(this@MainActivity, 2)
@@ -484,9 +502,27 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private fun startStatsUpdateTimer() {
         scope.launch {
             while (isActive) {
-                delay(1000) // 1 seconde
                 adapter.updateStats()
                 updateTotalStats()
+                
+                // Vérifier l'heure pour le réveil France Culture (06:30:00)
+                if (isFranceCultureAlarmSet) {
+                    val now = java.time.LocalTime.now()
+                    if (now.hour == alarmHour && now.minute == alarmMinute && now.second == 0) {
+                        // Si une station est en cours de lecture et que ce n'est pas déjà France Culture
+                        if (radioService?.isPlaying() == true && radioService?.getCurrentStation()?.id != 2) {
+                            val currentStation = radioStations.find { it.id == 2 }
+                            if (currentStation != null) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@MainActivity, "Réveil : Lancement de France Culture", Toast.LENGTH_LONG).show()
+                                    selectStation(currentStation)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                delay(1000) // 1 seconde
 
                 // Mettre à jour le widget avec la station en cours
                 val currentStationId = radioService?.getCurrentStation()?.id
@@ -530,6 +566,47 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         } catch (e: Exception) {
             binding.tvBuildDate.text = "Build: N/A"
         }
+    }
+
+    private fun showTimeEditDialog() {
+        val input = android.widget.EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_DATETIME or android.text.InputType.TYPE_DATETIME_VARIATION_TIME
+        input.hint = "HH:mm"
+        input.setText(String.format("%02d:%02d", alarmHour, alarmMinute))
+        input.gravity = android.view.Gravity.CENTER
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Régler l'heure du réveil")
+            .setView(input)
+            .setPositiveButton("OK") { _, _ ->
+                val timeStr = input.text.toString()
+                try {
+                    val parts = timeStr.split(":")
+                    if (parts.size == 2) {
+                        val h = parts[0].toInt()
+                        val m = parts[1].toInt()
+                        
+                        if (h in 0..23 && m in 0..59) {
+                            alarmHour = h
+                            alarmMinute = m
+                            
+                            val newTimeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
+                            adapter.alarmTimeText = newTimeStr
+                            adapter.notifyDataSetChanged() // Refresh to update clock text
+                            
+                            Toast.makeText(this, "Réveil réglé sur $newTimeStr", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Heure invalide (00:00 - 23:59)", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(this, "Format invalide. Utilisez HH:mm", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Erreur de format", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
     }
 
     override fun onDestroy() {

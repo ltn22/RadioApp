@@ -632,7 +632,9 @@ class RadioService : MediaBrowserServiceCompat() {
         }
     }
 
-    fun isPlaying(): Boolean = if (::exoPlayer.isInitialized) exoPlayer.isPlaying else false
+    fun isPlaying(): Boolean {
+        return ::exoPlayer.isInitialized && exoPlayer.isPlaying
+    }
 
     fun getCurrentStation(): RadioStation? = currentStation
 
