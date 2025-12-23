@@ -133,6 +133,10 @@ class StatsManager(context: Context) {
         }
     }
 
+    fun formatPlayCount(count: Int): String {
+        return String.format(Locale.US, "%,d", count).replace(",", "\u202F") // Espace insécable fine
+    }
+
     fun cleanup() {
         // scope.cancel()
     }

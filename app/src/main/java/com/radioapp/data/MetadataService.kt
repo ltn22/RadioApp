@@ -33,7 +33,8 @@ class MetadataService {
     private val bbcStations = mapOf(
         5 to "bbc_radio_three",    // BBC Radio 3
         7 to "bbc_radio_scotland_fm",  // BBC Radio Scotland
-        10 to "bbc_radio_one"  // BBC Radio 1
+        10 to "bbc_radio_one",  // BBC Radio 1
+        36 to "bbc_radio_fourfm" // BBC Radio 4
     )
 
     fun startMonitoring(stationId: Int, callback: (TrackMetadata?) -> Unit) {
@@ -182,9 +183,16 @@ class MetadataService {
                     var imageUrlTemplate: String? = null
 
                     // Essayer image_url
-                    val imageUrlObj = segment.optJSONObject("image_url")
-                    if (imageUrlObj != null) {
-                        imageUrlTemplate = imageUrlObj.optString("template", "")
+                    // D'abord voir si c'est une string directe (nouveau format)
+                    val imageUrlString = segment.optString("image_url", "")
+                    if (imageUrlString.isNotEmpty() && imageUrlString.contains("{recipe}")) {
+                        imageUrlTemplate = imageUrlString
+                    } else {
+                        // Sinon essayer comme un objet (ancien format)
+                        val imageUrlObj = segment.optJSONObject("image_url")
+                        if (imageUrlObj != null) {
+                            imageUrlTemplate = imageUrlObj.optString("template", "")
+                        }
                     }
 
                     // Si pas trouvé, essayer synopses/image_url

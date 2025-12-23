@@ -66,7 +66,8 @@ class RadioStationAdapter(
         val playCount = statsManager.getPlayCount(station.id)
         val listeningTime = statsManager.getListeningTime(station.id)
         val formattedTime = statsManager.formatListeningTime(listeningTime)
-        holder.tvStationStats.text = "$playCount plays\n$formattedTime"
+        val formattedPlayCount = statsManager.formatPlayCount(playCount)
+        holder.tvStationStats.text = "$formattedPlayCount plays\n$formattedTime"
     }
 
     private fun updateBackground(holder: ViewHolder, station: RadioStation) {

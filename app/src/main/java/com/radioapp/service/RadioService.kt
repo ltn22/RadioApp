@@ -524,6 +524,7 @@ class RadioService : MediaBrowserServiceCompat() {
 
         listener?.onPlaybackStateChanged(false)
         stopForeground(true)
+        getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
     }
 
     private fun startSessionTimeUpdater() {
@@ -979,6 +980,8 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     private fun updateNotification() {
+        if (!isSessionActive && !isForegroundServiceStarted) return
+
         Log.d(TAG, "=== updateNotification CALLED ===")
         val notification = createNotification()
 

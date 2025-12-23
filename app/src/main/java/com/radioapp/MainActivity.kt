@@ -61,7 +61,10 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             RadioStation(30, "Refuge Worldwide 1", "https://streaming.radio.co/s3699c5e49/listen", "Electronic", R.drawable.logo_refuge_worldwide_1),
             RadioStation(31, "Refuge Worldwide 2", "https://s4.radio.co/s8ce53d687/listen", "Electronic", R.drawable.logo_refuge_worldwide_2),
             RadioStation(32, "FluxFM", "https://fluxmusic.api.radiosphere.io/channels/FluxFM/stream.aac", "Alternative", R.drawable.logo_fluxfm),
-            RadioStation(33, "Ö1", "https://orf-live.ors-shoutcast.at/oe1-q2a", "Culture", R.drawable.logo_oe1)
+            RadioStation(33, "Ö1", "https://orf-live.ors-shoutcast.at/oe1-q2a", "Culture", R.drawable.logo_oe1),
+            RadioStation(34, "Radio FG", "https://n22a-eu.rcs.revma.com/vb3b5749n98uv?rj-ttl=5&rj-tok=AAABm0auL_wAzWhDVQvr9opANA&CAID=202511231112549438454594", "Electro", R.drawable.logo_radio_fg),
+            RadioStation(35, "Chicago House Radio", "https://stream.radio.co/sae989fe39/listen", "House", R.drawable.logo_chicago_house),
+            RadioStation(36, "BBC Radio 4", "http://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d96000.norewind.m3u8", "Talk", R.drawable.logo_bbc_radio4)
         )
 
         fun getAllRadioStations(): List<RadioStation> = radioStations
@@ -506,7 +509,8 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
         val formattedTime = statsManager.formatListeningTime(totalTime)
         val formattedData = statsManager.formatDataSize(totalData)
-        binding.tvTotalStats.text = "Total: $totalPlays plays • $formattedTime • $formattedData"
+        val formattedTotalPlays = statsManager.formatPlayCount(totalPlays)
+        binding.tvTotalStats.text = "Total: $formattedTotalPlays plays • $formattedTime • $formattedData"
     }
 
     private fun displayBuildDate() {
@@ -522,7 +526,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
             val buildDate = dateFormat.format(java.util.Date(buildTime))
 
-            binding.tvBuildDate.text = "Build: $buildDate"
+            binding.tvBuildDate.text = "Build: $buildDate (${BuildConfig.GIT_BRANCH})"
         } catch (e: Exception) {
             binding.tvBuildDate.text = "Build: N/A"
         }
