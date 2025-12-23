@@ -1,13 +1,13 @@
 # RadioApp 📻
 
-Application Android de streaming radio avec 33 stations internationales, statistiques d'écoute détaillées et widget.
+Application Android de streaming radio avec 36 stations internationales, statistiques d'écoute détaillées et widget.
 
 ## 📱 Fonctionnalités
 
-### 🎵 Stations de Radio (33)
+### 🎵 Stations de Radio (36)
 - **France** : France Inter, France Culture, France Info, France Musique, FIP, RTL, Radio Nova, RFI, RAJE, Bide et Musique, Radio Meuh
-- **BBC** : Radio 1, Radio 3, Radio Scotland, World Service
-- **Electronic/Underground** : NTS 1, NTS 2, dublab, Cashmere Radio, Rinse FM, Refuge Worldwide 1 & 2, Ibiza Global Radio, Ibiza Live Radio
+- **BBC** : Radio 1, Radio 3, Radio 4, Radio Scotland, World Service
+- **Electronic/Underground** : NTS 1, NTS 2, dublab, Cashmere Radio, Rinse FM, Refuge Worldwide 1 & 2, Ibiza Global Radio, Ibiza Live Radio, Radio FG, Chicago House Radio
 - **Alternative/Eclectic** : FluxFM, Le Mellotron
 - **International** : Radio Canada Première, So! Radio Oman, WWOZ (New Orleans), Radio Caroline, Ö1 (Austria)
 - **Rock/Metal** : 97 Underground, Pink Unicorn Radio
@@ -123,7 +123,7 @@ app/src/main/
 │   └── widget/
 │       └── RadioWidgetProvider.kt     # Widget Android
 ├── res/
-│   ├── drawable/                      # Logos des stations (33)
+│   ├── drawable/                      # Logos des stations (36)
 │   ├── layout/
 │   │   ├── activity_main.xml          # Layout principal
 │   │   ├── item_radio_station.xml     # Item de station

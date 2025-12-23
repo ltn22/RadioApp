@@ -1,22 +1,22 @@
 # RadioApp 📻
 
-Application Android de streaming radio avec 33 stations internationales, **support Android Auto**, statistiques d'écoute détaillées et widget.
+Application Android de streaming radio avec 36 stations internationales, **support Android Auto**, statistiques d'écoute détaillées et widget.
 
 ## 📱 Fonctionnalités
 
 ### 🚗 Android Auto
 - **Intégration native complète** : l'application apparaît automatiquement dans Android Auto
-- **Navigation intuitive** : parcourez vos 33 stations directement depuis l'écran de votre voiture
+- **Navigation intuitive** : parcourez vos 36 stations directement depuis l'écran de votre voiture
 - **Tri intelligent** : les stations sont classées par ordre d'utilisation
 - **Contrôle complet** : lecture, pause, stop et changement de station en toute sécurité
 - **Métadonnées en temps réel** : titre du morceau et logo de la station affichés
 - **Gestion audio automatique** : focus audio géré intelligemment (pas besoin de lancer Spotify d'abord !)
 - **Action personnalisée** : bouton "Passer pub" accessible depuis l'interface Android Auto
 
-### 🎵 Stations de Radio (33)
+### 🎵 Stations de Radio (36)
 - **France** : France Inter, France Culture, France Info, France Musique, FIP, RTL, Radio Nova, RFI, RAJE, Bide et Musique, Radio Meuh
-- **BBC** : Radio 1, Radio 3, Radio Scotland, World Service
-- **Electronic/Underground** : NTS 1, NTS 2, dublab, Cashmere Radio, Rinse FM, Refuge Worldwide 1 & 2, Ibiza Global Radio, Ibiza Live Radio
+- **BBC** : Radio 1, Radio 3, Radio 4, Radio Scotland, World Service
+- **Electronic/Underground** : NTS 1, NTS 2, dublab, Cashmere Radio, Rinse FM, Refuge Worldwide 1 & 2, Ibiza Global Radio, Ibiza Live Radio, Radio FG, Chicago House Radio
 - **Alternative/Eclectic** : FluxFM, Le Mellotron
 - **International** : Radio Canada Première, So! Radio Oman, WWOZ (New Orleans), Radio Caroline, Ö1 (Austria)
 - **Rock/Metal** : 97 Underground, Pink Unicorn Radio
@@ -135,7 +135,7 @@ app/src/main/
 │   └── widget/
 │       └── RadioWidgetProvider.kt     # Widget Android
 ├── res/
-│   ├── drawable/                      # Logos des stations (33)
+│   ├── drawable/                      # Logos des stations (36)
 │   ├── layout/
 │   │   ├── activity_main.xml          # Layout principal
 │   │   ├── item_radio_station.xml     # Item de station
@@ -150,7 +150,7 @@ app/src/main/
 ### 🚗 Dans Android Auto
 1. Connecter votre téléphone à Android Auto
 2. L'application "RadioApp" apparaît automatiquement dans la section Média
-3. Parcourir les 33 stations triées par fréquence d'utilisation
+3. Parcourir les 36 stations triées par fréquence d'utilisation
 4. Sélectionner une station pour lancer la lecture
 5. Contrôler la lecture avec les boutons Play/Pause/Stop
 6. Utiliser l'action "Passer pub" pour sauter les publicités
