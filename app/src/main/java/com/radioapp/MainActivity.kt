@@ -303,9 +303,10 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     private fun selectStation(station: RadioStation) {
         radioService?.let { service ->
-            // Stop current playback if any
+            val wasPlaying = service.isPlaying()
+
+            // Stop tracking stats for the previous station
             statsManager.stopListening()
-            service.stop()
 
             // Réinitialiser les métadonnées et cacher la pochette
             metadataResetJob?.cancel()
@@ -318,16 +319,24 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             adapter.sortStations()
 
             // Load new station
+            // Note: If switching stations while playing, we don't call stop() to avoid
+            // losing foreground state (which causes crash on Android 12+ in background)
+            // loadStation handles the internal ExoPlayer transition
             service.loadStation(station)
+            
             binding.tvCurrentStation.text = station.name
             updateTotalStats()
 
             // Update adapter to show current playing station
             adapter.setCurrentPlayingStation(station.id)
 
-            // Start playing automatically
-            ensureServiceStarted()
+            // Start playing automatically if it wasn't already or just continue
+            if (!wasPlaying) {
+                 ensureServiceStarted()
+            }
             service.play()
+            
+            // Start stats tracking for new station
             statsManager.startListening(station.id)
 
             // Démarrer le monitoring des métadonnées pour les stations Radio France
