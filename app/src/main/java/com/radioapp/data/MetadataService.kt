@@ -26,6 +26,7 @@ class MetadataService {
     var onSearchStatus: ((String) -> Unit)? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var aiirWebSocket: WebSocket? = null
+    private var lastAIIRConnectionTime = 0L  // Prevent duplicate AIIR connections
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
@@ -296,6 +297,7 @@ class MetadataService {
 
     private fun downloadImage(urlString: String): Bitmap? {
         return try {
+            Log.d("MetadataService", "Downloading image from: $urlString")
             val url = URL(urlString)
             val connection = url.openConnection()
             connection.connectTimeout = 5000
@@ -307,8 +309,11 @@ class MetadataService {
                 inMutable = false  // Bitmap immutable pour Android Q+
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
-            BitmapFactory.decodeStream(inputStream, null, options)
+            val bitmap = BitmapFactory.decodeStream(inputStream, null, options)
+            Log.d("MetadataService", "Image downloaded successfully: ${bitmap != null}")
+            bitmap
         } catch (e: Exception) {
+            Log.e("MetadataService", "Error downloading image: ${e.message}")
             e.printStackTrace()
             null
         }
@@ -437,6 +442,21 @@ class MetadataService {
     private fun connectToAIIRWebSocket(stationId: String) {
         Log.d("MetadataService", "=== connectToAIIRWebSocket CALLED for station: $stationId ===")
 
+        // Prevent duplicate rapid connections (< 500ms apart)
+        val now = System.currentTimeMillis()
+        if (now - lastAIIRConnectionTime < 500) {
+            Log.d("MetadataService", "Ignoring duplicate AIIR connection within 500ms")
+            return
+        }
+        lastAIIRConnectionTime = now
+
+        // Close any existing AIIR WebSocket before creating a new one
+        if (aiirWebSocket != null) {
+            Log.d("MetadataService", "Closing existing AIIR WebSocket")
+            aiirWebSocket?.close(1000, "New connection")
+            aiirWebSocket = null
+        }
+
         val wsUrl = "wss://metadata.aiir.net/now-playing"
 
         // Get the Origin URL for this service (default to soradiooman.com for any 4425 serviceId)
@@ -542,10 +562,14 @@ class MetadataService {
                 artist = nowPlaying.optString("artist", "")
                 coverUrl = nowPlaying.optString("image", null)
             }
-            // Also check for nowProgramme (programme en cours)
+            // Also check for nowProgramme (programme en cours) - this has the cover image!
             if (json.has("nowProgramme")) {
                 val nowProgramme = json.getJSONObject("nowProgramme")
                 albumProgram = nowProgramme.optString("name", null)
+                // Programme image URL - use this as cover if not found elsewhere
+                if (coverUrl.isNullOrEmpty()) {
+                    coverUrl = nowProgramme.optString("imageUrl", null)
+                }
             }
             // Fallback to older format if needed
             if (title.isEmpty() && json.has("track")) {

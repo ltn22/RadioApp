@@ -306,6 +306,13 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             // Check if we're already on this station
             val currentStation = service.getCurrentStation()
             android.util.Log.d("MainActivity", "selectStation called for ${station.id} ${station.name}, currentStation=${currentStation?.id} ${currentStation?.name}")
+
+            // Log stack trace if called multiple times quickly
+            val traces = Thread.currentThread().stackTrace
+            if (traces.size > 3) {
+                android.util.Log.d("MainActivity", "Called from: ${traces[3]}")
+            }
+
             if (currentStation?.id == station.id) {
                 android.util.Log.d("MainActivity", "Already on station ${station.name}, ignoring duplicate call")
                 return@let
@@ -358,8 +365,12 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         metadata.title
                     }
                     android.util.Log.d("MainActivity", "Setting tvCurrentStation to: $displayText")
-                    binding.tvCurrentStation.text = displayText
-                    android.util.Log.d("MainActivity", "tvCurrentStation text set successfully")
+                    try {
+                        binding.tvCurrentStation.text = displayText
+                        android.util.Log.d("MainActivity", "tvCurrentStation text set successfully")
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Error setting text: ${e.message}", e)
+                    }
 
                     // Afficher la pochette si disponible
                     if (metadata.coverBitmap != null) {
@@ -375,7 +386,9 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
                     // Timer de 1 minute pour revenir au nom de la station
                     metadataResetJob = scope.launch {
+                        android.util.Log.d("MainActivity", "Metadata timeout timer started for: $displayText")
                         delay(60000)
+                        android.util.Log.d("MainActivity", "Metadata timeout! Resetting to station name: ${station.name}")
                         currentMetadataTitle = null
                         binding.tvCurrentStation.text = station.name
                         binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image
