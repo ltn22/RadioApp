@@ -54,8 +54,14 @@ class MetadataService {
     )
 
     // Stations qui utilisent la websocket AIIR
+    // serviceId to originUrl mapping for AIIR services
     private val aiirStations = mapOf(
-        16 to "So! Radio Oman"  // So Radio via AIIR websocket with Origin header
+        16 to "4425"  // So Radio Oman - AIIR serviceId
+    )
+
+    // Origin URLs for AIIR services
+    private val aiirOrigins = mapOf(
+        "4425" to "https://www.soradiooman.com"  // So Radio Oman
     )
 
     // Stations de radio directe sans metadata (affiche "En direct")
@@ -67,11 +73,15 @@ class MetadataService {
         stopMonitoring()
         onMetadataUpdate = callback
 
+        Log.d("MetadataService", "=== startMonitoring called for stationId=$stationId ===")
+
         val radioFranceId = radioFranceStations[stationId]
         val bbcServiceId = bbcStations[stationId]
         val scrapingKey = webScrapingStations[stationId]
         val aiirServiceId = aiirStations[stationId]
         val isLiveOnly = liveOnlyStations.contains(stationId)
+
+        Log.d("MetadataService", "Station checks: radioFrance=$radioFranceId, bbc=$bbcServiceId, scraping=$scrapingKey, aiir=$aiirServiceId, liveOnly=$isLiveOnly")
 
         if (isLiveOnly) {
             // Pour les stations en direct sans métadonnées officielles
@@ -425,18 +435,14 @@ class MetadataService {
     }
 
     private fun connectToAIIRWebSocket(stationId: String) {
-        Log.d("MetadataService", "Connecting to AIIR WebSocket for station: $stationId")
+        Log.d("MetadataService", "=== connectToAIIRWebSocket CALLED for station: $stationId ===")
 
         val wsUrl = "wss://metadata.aiir.net/now-playing"
 
-        // Add appropriate Origin header for the station
-        val originUrl = when {
-            stationId.contains("So! Radio") || stationId.contains("Oman") ->
-                "https://www.soradiooman.com"
-            else -> "https://www.radioapp.com"
-        }
+        // Get the Origin URL for this service (default to soradiooman.com for any 4425 serviceId)
+        val originUrl = aiirOrigins[stationId] ?: "https://www.soradiooman.com"
 
-        Log.d("MetadataService", "Using Origin header: $originUrl")
+        Log.d("MetadataService", "Connecting to AIIR WebSocket with Origin: $originUrl")
 
         val request = Request.Builder()
             .url(wsUrl)
@@ -448,7 +454,31 @@ class MetadataService {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d("MetadataService", "AIIR WebSocket connected successfully for station: $stationId")
                 Log.d("MetadataService", "Connected to AIIR now-playing feed")
-                // No need to send identification message - the server identifies by Origin header
+
+                // Log response details for debugging
+                Log.d("MetadataService", "WebSocket response code: ${response.code}")
+                Log.d("MetadataService", "WebSocket response message: ${response.message}")
+                val headers = response.headers
+                for (i in 0 until headers.size) {
+                    Log.d("MetadataService", "Response header ${i}: ${headers.name(i)} = ${headers.value(i)}")
+                }
+
+                // Send subscription message with the serviceId
+                scope.launch {
+                    try {
+                        // The stationId is actually the AIIR serviceId (e.g., "4425" for So Radio)
+                        val subscribeMsg = JSONObject().apply {
+                            put("action", "subscribe")
+                            put("serviceId", stationId)
+                        }
+
+                        val msgString = subscribeMsg.toString()
+                        webSocket.send(msgString)
+                        Log.d("MetadataService", "Sent subscription: $msgString")
+                    } catch (e: Exception) {
+                        Log.e("MetadataService", "Error sending subscription message", e)
+                    }
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -472,6 +502,9 @@ class MetadataService {
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e("MetadataService", "AIIR WebSocket error: ${t.message}")
                 Log.e("MetadataService", "Error cause: ${t.cause}")
+                if (response != null) {
+                    Log.e("MetadataService", "Response code: ${response.code}, message: ${response.message}")
+                }
                 t.printStackTrace()
             }
 
@@ -484,32 +517,44 @@ class MetadataService {
 
     private fun parseAIIRMetadata(jsonString: String): TrackMetadata? {
         return try {
+            // Handle error messages from the server
+            if (jsonString.contains("not recognised") || jsonString.contains("not recognized") ||
+                jsonString.startsWith("Service") || jsonString.startsWith("Error")) {
+                Log.d("MetadataService", "Server error message: $jsonString")
+                return null
+            }
+
             val json = JSONObject(jsonString)
 
-            // La structure peut varier, essayer plusieurs chemins possibles
+            // La structure AIIR: {"nowPlaying": {"artist": "...", "title": "..."}, "nowProgramme": {"name": "..."}}
             var title = ""
             var artist = ""
+            var albumProgram: String? = null
             var coverUrl: String? = null
 
-            // Essayer le format standard AIIR
-            if (json.has("track")) {
-                val track = json.getJSONObject("track")
-                title = track.optString("title", "")
-                artist = track.optString("artist", "")
-
-                if (json.has("image")) {
-                    coverUrl = json.optString("image", null)
-                }
-            }
-            // Essayer un format alternatif
-            else if (json.has("now_playing")) {
-                val nowPlaying = json.getJSONObject("now_playing")
+            // AIIR format - nowPlaying object with artist and title
+            if (json.has("nowPlaying")) {
+                val nowPlaying = json.getJSONObject("nowPlaying")
                 title = nowPlaying.optString("title", "")
                 artist = nowPlaying.optString("artist", "")
                 coverUrl = nowPlaying.optString("image", null)
             }
-            // Essayer les champs à la racine
-            else {
+            // Also check for nowProgramme (programme en cours)
+            if (json.has("nowProgramme")) {
+                val nowProgramme = json.getJSONObject("nowProgramme")
+                albumProgram = nowProgramme.optString("name", null)
+            }
+            // Fallback to older format if needed
+            if (title.isEmpty() && json.has("track")) {
+                val track = json.getJSONObject("track")
+                title = track.optString("title", "")
+                artist = track.optString("artist", "")
+                if (json.has("image")) {
+                    coverUrl = json.optString("image", null)
+                }
+            }
+            // Fallback: try fields at root level
+            if (title.isEmpty()) {
                 title = json.optString("title", "")
                 artist = json.optString("artist", "")
                 coverUrl = json.optString("image", null)
@@ -526,7 +571,7 @@ class MetadataService {
                 return TrackMetadata(
                     title = title.trim(),
                     artist = artist.trim(),
-                    album = null,
+                    album = albumProgram,  // Use the programme name if available
                     coverUrl = coverUrl,
                     coverBitmap = bitmap
                 )
