@@ -487,8 +487,11 @@ class MetadataService {
                     val metadata = parseAIIRMetadata(text)
                     if (metadata != null) {
                         Log.d("MetadataService", "Successfully parsed AIIR metadata")
+                        Log.d("MetadataService", "onMetadataUpdate callback is null? ${onMetadataUpdate == null}")
                         MainScope().launch {
+                            Log.d("MetadataService", "Calling onMetadataUpdate with: ${metadata.artist} - ${metadata.title}")
                             onMetadataUpdate?.invoke(metadata)
+                            Log.d("MetadataService", "onMetadataUpdate callback completed")
                         }
                     } else {
                         Log.d("MetadataService", "Could not parse AIIR metadata from message")

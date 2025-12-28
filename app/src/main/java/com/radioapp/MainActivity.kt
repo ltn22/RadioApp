@@ -303,6 +303,14 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     private fun selectStation(station: RadioStation) {
         radioService?.let { service ->
+            // Check if we're already on this station
+            val currentStation = service.getCurrentStation()
+            android.util.Log.d("MainActivity", "selectStation called for ${station.id} ${station.name}, currentStation=${currentStation?.id} ${currentStation?.name}")
+            if (currentStation?.id == station.id) {
+                android.util.Log.d("MainActivity", "Already on station ${station.name}, ignoring duplicate call")
+                return@let
+            }
+
             val wasPlaying = service.isPlaying()
 
             // Stop tracking stats for the previous station
@@ -342,13 +350,16 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             // Démarrer le monitoring des métadonnées pour les stations Radio France
             metadataService.startMonitoring(station.id) { metadata ->
                 if (metadata != null) {
+                    android.util.Log.d("MainActivity", "Metadata callback received: ${metadata.artist} - ${metadata.title}")
                     // Construire le texte en évitant le tiret si l'artiste est vide
                     val displayText = if (metadata.artist.isNotBlank()) {
                         "${metadata.artist} - ${metadata.title}"
                     } else {
                         metadata.title
                     }
+                    android.util.Log.d("MainActivity", "Setting tvCurrentStation to: $displayText")
                     binding.tvCurrentStation.text = displayText
+                    android.util.Log.d("MainActivity", "tvCurrentStation text set successfully")
 
                     // Afficher la pochette si disponible
                     if (metadata.coverBitmap != null) {
