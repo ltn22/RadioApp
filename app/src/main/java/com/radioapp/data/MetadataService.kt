@@ -53,9 +53,12 @@ class MetadataService {
         15 to "bide"  // Bide et Musique - via radio-info.php
     )
 
-    // Stations qui utilisent la websocket AIIR
-    private val aiirStations = mapOf(
-        16 to "so-radio-oman"  // So! Radio Oman - via AIIR websocket
+    // Stations qui utilisent la websocket AIIR (aucune metadata officielle - à améliorer)
+    private val aiirStations: Map<Int, String> = emptyMap()
+
+    // Stations de radio directe sans metadata (affiche "En direct")
+    private val liveOnlyStations = setOf(
+        16  // So! Radio Oman - no metadata available
     )
 
     fun startMonitoring(stationId: Int, callback: (TrackMetadata?) -> Unit) {
@@ -66,8 +69,14 @@ class MetadataService {
         val bbcServiceId = bbcStations[stationId]
         val scrapingKey = webScrapingStations[stationId]
         val aiirServiceId = aiirStations[stationId]
+        val isLiveOnly = liveOnlyStations.contains(stationId)
 
-        if (radioFranceId != null) {
+        if (isLiveOnly) {
+            // Pour les stations en direct sans métadonnées officielles
+            Log.d("MetadataService", "Station $stationId has no official metadata service - displaying 'Live'")
+            // Afficher "En direct" ou le nom de la station
+            // Le RadioService affichera le titre depuis les métadonnées ICY si disponibles
+        } else if (radioFranceId != null) {
             metadataJob = scope.launch {
                 while (isActive) {
                     try {
