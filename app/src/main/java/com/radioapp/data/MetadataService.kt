@@ -176,7 +176,11 @@ class MetadataService {
                     if (start <= currentTime && currentTime <= (end + 5)) {
                         var title = step.optString("title", "")
                         var artist = step.optString("authors", "")
-                        val album = step.optString("titreAlbum", "")
+                        var album = step.optString("titreAlbum", "")
+                        // Utiliser titleConcept comme fallback pour le nom du programme
+                        if (album.isEmpty()) {
+                            album = step.optString("titleConcept", "")
+                        }
                         var coverUrl = step.optString("visual", "")
 
                         // Pour FIP et autres, essayer aussi "annonceur" pour l'artiste
@@ -204,24 +208,11 @@ class MetadataService {
                             } else null
 
                             // Récupérer l'URL du programme/émission si disponible
+                            // Utiliser le champ "path" pour construire l'URL de l'émission
                             var programUrl: String? = null
-                            // Essayer diffusion
-                            if (step.has("diffusion")) {
-                                val diffusion = step.optJSONObject("diffusion")
-                                if (diffusion != null) {
-                                    programUrl = diffusion.optString("url", null)
-                                }
-                            }
-                            // Essayer emission
-                            if (programUrl == null && step.has("emission")) {
-                                val emission = step.optJSONObject("emission")
-                                if (emission != null) {
-                                    programUrl = emission.optString("url", null)
-                                }
-                            }
-                            // Essayer directement un champ "url" ou "link"
-                            if (programUrl == null) {
-                                programUrl = step.optString("url", null)
+                            val path = step.optString("path", null)
+                            if (!path.isNullOrEmpty()) {
+                                programUrl = "https://www.radiofrance.fr/$path"
                             }
 
                             Log.d("MetadataService", "Radio France metadata - Title: '$title', Artist: '$artist', Program URL: $programUrl")

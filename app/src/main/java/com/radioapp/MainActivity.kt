@@ -384,16 +384,27 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                     // Afficher le programme/émission si disponible (Radio France)
                     if (!metadata.programUrl.isNullOrEmpty()) {
                         currentProgramUrl = metadata.programUrl
-                        binding.tvProgramName.text = metadata.album ?: "Voir l'émission"
+                        // Afficher le nom du programme (album contient titleConcept) ou un texte par défaut
+                        val programText = metadata.album?.takeIf { it.isNotBlank() } ?: "Voir l'émission"
+                        binding.tvProgramName.text = programText
                         binding.tvProgramName.visibility = android.view.View.VISIBLE
-                        android.util.Log.d("MainActivity", "Displaying programme link: ${metadata.programUrl} with text: ${metadata.album}")
+                        android.util.Log.d("MainActivity", "Displaying programme link: ${metadata.programUrl} with text: $programText")
                         binding.tvProgramName.setOnClickListener {
+                            android.util.Log.d("MainActivity", "Programme link clicked! URL: $currentProgramUrl")
                             if (!currentProgramUrl.isNullOrEmpty()) {
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse(currentProgramUrl)
-                                )
-                                startActivity(intent)
+                                try {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(currentProgramUrl)
+                                    )
+                                    android.util.Log.d("MainActivity", "Starting activity with intent: $intent")
+                                    startActivity(intent)
+                                    android.util.Log.d("MainActivity", "Activity started successfully")
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MainActivity", "Error opening URL: ${e.message}", e)
+                                }
+                            } else {
+                                android.util.Log.e("MainActivity", "Programme URL is empty!")
                             }
                         }
                     } else {
