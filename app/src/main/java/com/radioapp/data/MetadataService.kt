@@ -6,6 +6,11 @@ import android.util.Log
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 
 data class TrackMetadata(
     val title: String,
@@ -20,6 +25,11 @@ class MetadataService {
     private var onMetadataUpdate: ((TrackMetadata?) -> Unit)? = null
     var onSearchStatus: ((String) -> Unit)? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var aiirWebSocket: WebSocket? = null
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 
     // IDs des stations Radio France
     private val radioFranceStations = mapOf(
@@ -43,6 +53,11 @@ class MetadataService {
         15 to "bide"  // Bide et Musique - via radio-info.php
     )
 
+    // Stations qui utilisent la websocket AIIR
+    private val aiirStations = mapOf(
+        16 to "so-radio-oman"  // So! Radio Oman - via AIIR websocket
+    )
+
     fun startMonitoring(stationId: Int, callback: (TrackMetadata?) -> Unit) {
         stopMonitoring()
         onMetadataUpdate = callback
@@ -50,6 +65,7 @@ class MetadataService {
         val radioFranceId = radioFranceStations[stationId]
         val bbcServiceId = bbcStations[stationId]
         val scrapingKey = webScrapingStations[stationId]
+        val aiirServiceId = aiirStations[stationId]
 
         if (radioFranceId != null) {
             metadataJob = scope.launch {
@@ -93,12 +109,16 @@ class MetadataService {
                     delay(20000) // Vérifier toutes les 20 secondes
                 }
             }
+        } else if (aiirServiceId != null) {
+            connectToAIIRWebSocket(aiirServiceId)
         }
     }
 
     fun stopMonitoring() {
         metadataJob?.cancel()
         metadataJob = null
+        aiirWebSocket?.close(1000, "Stopping monitoring")
+        aiirWebSocket = null
     }
 
     fun cleanup() {
@@ -389,6 +409,125 @@ class MetadataService {
         } catch (e: Exception) {
             Log.e("MetadataService", "Error fetching Bide metadata", e)
             e.printStackTrace()
+            null
+        }
+    }
+
+    private fun connectToAIIRWebSocket(stationId: String) {
+        Log.d("MetadataService", "Connecting to AIIR WebSocket for station: $stationId")
+
+        val wsUrl = "wss://metadata.aiir.net/now-playing"
+        val request = Request.Builder()
+            .url(wsUrl)
+            .addHeader("User-Agent", "RadioApp/1.0")
+            .build()
+
+        aiirWebSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.d("MetadataService", "AIIR WebSocket connected successfully")
+                Log.d("MetadataService", "Sending identification for station: $stationId")
+
+                // Try different message formats to identify the station
+                // Format 1: Seulement le nom de la station
+                val identifyMessage1 = stationId
+
+                // Format 2: JSON avec station
+                val identifyMessage2 = """{"station":"$stationId"}"""
+
+                // Format 3: JSON avec format alternatif
+                val identifyMessage3 = """{"station_id":"$stationId"}"""
+
+                // Format 4: Seulement "CONNECT"
+                val identifyMessage4 = "CONNECT"
+
+                // Essayer le format 1 d'abord (seulement le nom)
+                webSocket.send(identifyMessage1)
+                Log.d("MetadataService", "Sent identification message: $identifyMessage1")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                Log.d("MetadataService", "AIIR WebSocket message received (${text.length} chars): ${text.take(200)}")
+                try {
+                    val metadata = parseAIIRMetadata(text)
+                    if (metadata != null) {
+                        Log.d("MetadataService", "Successfully parsed AIIR metadata")
+                        MainScope().launch {
+                            onMetadataUpdate?.invoke(metadata)
+                        }
+                    } else {
+                        Log.d("MetadataService", "Could not parse AIIR metadata from message")
+                    }
+                } catch (e: Exception) {
+                    Log.e("MetadataService", "Error parsing AIIR message", e)
+                    e.printStackTrace()
+                }
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                Log.e("MetadataService", "AIIR WebSocket error: ${t.message}")
+                Log.e("MetadataService", "Error cause: ${t.cause}")
+                t.printStackTrace()
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                Log.d("MetadataService", "AIIR WebSocket closed: code=$code, reason=$reason")
+                aiirWebSocket = null
+            }
+        })
+    }
+
+    private fun parseAIIRMetadata(jsonString: String): TrackMetadata? {
+        return try {
+            val json = JSONObject(jsonString)
+
+            // La structure peut varier, essayer plusieurs chemins possibles
+            var title = ""
+            var artist = ""
+            var coverUrl: String? = null
+
+            // Essayer le format standard AIIR
+            if (json.has("track")) {
+                val track = json.getJSONObject("track")
+                title = track.optString("title", "")
+                artist = track.optString("artist", "")
+
+                if (json.has("image")) {
+                    coverUrl = json.optString("image", null)
+                }
+            }
+            // Essayer un format alternatif
+            else if (json.has("now_playing")) {
+                val nowPlaying = json.getJSONObject("now_playing")
+                title = nowPlaying.optString("title", "")
+                artist = nowPlaying.optString("artist", "")
+                coverUrl = nowPlaying.optString("image", null)
+            }
+            // Essayer les champs à la racine
+            else {
+                title = json.optString("title", "")
+                artist = json.optString("artist", "")
+                coverUrl = json.optString("image", null)
+            }
+
+            if (title.isNotEmpty() || artist.isNotEmpty()) {
+                Log.d("MetadataService", "Parsed AIIR metadata - Artist: '$artist', Title: '$title'")
+
+                // Télécharger la pochette si disponible
+                val bitmap = if (!coverUrl.isNullOrEmpty() && coverUrl.startsWith("http")) {
+                    downloadImage(coverUrl)
+                } else null
+
+                return TrackMetadata(
+                    title = title.trim(),
+                    artist = artist.trim(),
+                    album = null,
+                    coverUrl = coverUrl,
+                    coverBitmap = bitmap
+                )
+            }
+            null
+        } catch (e: Exception) {
+            Log.e("MetadataService", "Error parsing AIIR metadata", e)
             null
         }
     }
