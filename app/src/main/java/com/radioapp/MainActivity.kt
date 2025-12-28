@@ -79,6 +79,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private var metadataResetJob: Job? = null
     private var currentMetadataTitle: String? = null
     private var currentStation: RadioStation? = null  // Track current station to ignore ICY for AIIR stations
+    private var currentProgramUrl: String? = null  // URL du programme (Radio France)
     private val metadataService = com.radioapp.data.MetadataService()
     private var isFranceCultureAlarmSet = false
     private var alarmHour = 6
@@ -324,7 +325,9 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             // Réinitialiser les métadonnées et cacher la pochette
             metadataResetJob?.cancel()
             currentMetadataTitle = null
+            currentProgramUrl = null
             metadataService.stopMonitoring()
+            binding.tvProgramName.visibility = android.view.View.GONE
             binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image précédente
             binding.ivAlbumCover.visibility = android.view.View.GONE
 
@@ -378,6 +381,26 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         binding.ivAlbumCover.visibility = android.view.View.GONE
                     }
 
+                    // Afficher le programme/émission si disponible (Radio France)
+                    if (!metadata.programUrl.isNullOrEmpty()) {
+                        currentProgramUrl = metadata.programUrl
+                        binding.tvProgramName.text = metadata.album ?: "Voir l'émission"
+                        binding.tvProgramName.visibility = android.view.View.VISIBLE
+                        android.util.Log.d("MainActivity", "Displaying programme link: ${metadata.programUrl} with text: ${metadata.album}")
+                        binding.tvProgramName.setOnClickListener {
+                            if (!currentProgramUrl.isNullOrEmpty()) {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(currentProgramUrl)
+                                )
+                                startActivity(intent)
+                            }
+                        }
+                    } else {
+                        android.util.Log.d("MainActivity", "No programme URL in metadata")
+                        binding.tvProgramName.visibility = android.view.View.GONE
+                    }
+
                     // Annuler le timer précédent
                     metadataResetJob?.cancel()
                     currentMetadataTitle = displayText
@@ -388,7 +411,9 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         delay(60000)
                         android.util.Log.d("MainActivity", "Metadata timeout! Resetting to station name: ${station.name}")
                         currentMetadataTitle = null
+                        currentProgramUrl = null
                         binding.tvCurrentStation.text = station.name
+                        binding.tvProgramName.visibility = android.view.View.GONE
                         binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image
                         binding.ivAlbumCover.visibility = android.view.View.GONE
                     }

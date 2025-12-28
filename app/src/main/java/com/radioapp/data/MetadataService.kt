@@ -17,7 +17,8 @@ data class TrackMetadata(
     val artist: String,
     val album: String?,
     val coverUrl: String?,
-    val coverBitmap: Bitmap? = null
+    val coverBitmap: Bitmap? = null,
+    val programUrl: String? = null  // URL du programme (Radio France émissions)
 )
 
 class MetadataService {
@@ -202,12 +203,36 @@ class MetadataService {
                                 downloadImage(coverUrl)
                             } else null
 
+                            // Récupérer l'URL du programme/émission si disponible
+                            var programUrl: String? = null
+                            // Essayer diffusion
+                            if (step.has("diffusion")) {
+                                val diffusion = step.optJSONObject("diffusion")
+                                if (diffusion != null) {
+                                    programUrl = diffusion.optString("url", null)
+                                }
+                            }
+                            // Essayer emission
+                            if (programUrl == null && step.has("emission")) {
+                                val emission = step.optJSONObject("emission")
+                                if (emission != null) {
+                                    programUrl = emission.optString("url", null)
+                                }
+                            }
+                            // Essayer directement un champ "url" ou "link"
+                            if (programUrl == null) {
+                                programUrl = step.optString("url", null)
+                            }
+
+                            Log.d("MetadataService", "Radio France metadata - Title: '$title', Artist: '$artist', Program URL: $programUrl")
+
                             return@withContext TrackMetadata(
                                 title = title,
                                 artist = artist,
                                 album = album.ifEmpty { null },
                                 coverUrl = coverUrl.ifEmpty { null },
-                                coverBitmap = bitmap
+                                coverBitmap = bitmap,
+                                programUrl = programUrl
                             )
                         }
                     }
@@ -283,7 +308,8 @@ class MetadataService {
                             artist = artist,
                             album = null,
                             coverUrl = finalImageUrl,
-                            coverBitmap = bitmap
+                            coverBitmap = bitmap,
+                            programUrl = null
                         )
                     }
                 }
@@ -426,7 +452,8 @@ class MetadataService {
                     artist = artist,
                     album = null,
                     coverUrl = coverUrl,
-                    coverBitmap = bitmap
+                    coverBitmap = bitmap,
+                    programUrl = null
                 )
             } else {
                 Log.d("MetadataService", "Could not parse artist/title from HTML")

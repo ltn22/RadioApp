@@ -46,7 +46,18 @@
             android:textAlignment="center"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvProgramName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textAlignment="center"
+            android:textSize="12sp"
+            android:textColor="@color/teal_700"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/tvTotalStats"
