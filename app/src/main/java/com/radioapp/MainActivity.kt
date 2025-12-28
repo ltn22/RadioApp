@@ -218,8 +218,8 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         val sortedStations = radioStations.sortedByDescending { station ->
             statsManager.getPlayCount(station.id)
         }
-        
-        adapter = RadioStationAdapter(radioStations, statsManager, { station ->
+
+        adapter = RadioStationAdapter(sortedStations, statsManager, { station ->
             selectStation(station)
         }, { isSet ->
             isFranceCultureAlarmSet = isSet
