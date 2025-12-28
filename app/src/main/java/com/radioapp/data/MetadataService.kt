@@ -37,7 +37,7 @@ class MetadataService {
     private val radioFranceStations = mapOf(
         1 to 1,    // France Inter (api id: 1)
         2 to 5,    // France Culture (api id: 5)
-        3 to 3,    // France Info (api id: 3)
+        3 to 47,   // France Info (api id: 47)
         6 to 7,    // FIP (api id: 7 - station principale)
         13 to 4    // France Musique (api id: 4)
     )
@@ -164,6 +164,7 @@ class MetadataService {
                 // Parcourir les steps pour trouver le morceau en cours
                 val steps = data.optJSONObject("steps") ?: return@withContext null
                 val currentTime = System.currentTimeMillis() / 1000.0
+                Log.d("MetadataService", "fetchRadioFranceMetadata: stationId=$stationId, currentTime=$currentTime, steps count=${steps.length()}")
 
                 val keys = steps.keys()
                 while (keys.hasNext()) {
@@ -174,6 +175,7 @@ class MetadataService {
 
                     // Si le morceau est en cours (avec marge de 5 secondes)
                     if (start <= currentTime && currentTime <= (end + 5)) {
+                        Log.d("MetadataService", "Found matching time slot for stationId=$stationId: start=$start, end=$end, currentTime=$currentTime")
                         var title = step.optString("title", "")
                         var artist = step.optString("authors", "")
                         var album = step.optString("titreAlbum", "")
@@ -201,6 +203,7 @@ class MetadataService {
                         title = title.trim()
                         artist = artist.trim()
 
+                        Log.d("MetadataService", "Checking metadata for stationId=$stationId: title='$title', artist='$artist', album='$album'")
                         if (title.isNotEmpty() || artist.isNotEmpty()) {
                             // Télécharger la pochette si disponible
                             val bitmap = if (coverUrl.isNotEmpty() && coverUrl.startsWith("http")) {
