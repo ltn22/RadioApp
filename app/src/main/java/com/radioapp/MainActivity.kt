@@ -78,6 +78,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var metadataResetJob: Job? = null
     private var currentMetadataTitle: String? = null
+    private var currentStation: RadioStation? = null  // Track current station to ignore ICY for AIIR stations
     private val metadataService = com.radioapp.data.MetadataService()
     private var isFranceCultureAlarmSet = false
     private var alarmHour = 6
@@ -303,9 +304,12 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     private fun selectStation(station: RadioStation) {
         radioService?.let { service ->
+            // Track the current station
+            currentStation = station
+
             // Check if we're already on this station
-            val currentStation = service.getCurrentStation()
-            android.util.Log.d("MainActivity", "selectStation called for ${station.id} ${station.name}, currentStation=${currentStation?.id} ${currentStation?.name}")
+            val previousStation = service.getCurrentStation()
+            android.util.Log.d("MainActivity", "selectStation called for ${station.id} ${station.name}, previousStation=${previousStation?.id} ${previousStation?.name}")
 
             // Log stack trace if called multiple times quickly
             val traces = Thread.currentThread().stackTrace
@@ -459,6 +463,12 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     override fun onMetadataChanged(title: String?, artworkUri: String?) {
         runOnUiThread {
+            // Ignore ICY metadata for AIIR stations - use WebSocket metadata instead
+            if (currentStation?.id == 16) {  // So Radio uses AIIR
+                android.util.Log.d("MainActivity", "Ignoring ICY metadata for AIIR station: $title")
+                return@runOnUiThread
+            }
+
             // Annuler le timer précédent
             metadataResetJob?.cancel()
 
