@@ -53,12 +53,14 @@ class MetadataService {
         15 to "bide"  // Bide et Musique - via radio-info.php
     )
 
-    // Stations qui utilisent la websocket AIIR (aucune metadata officielle - à améliorer)
-    private val aiirStations: Map<Int, String> = emptyMap()
+    // Stations qui utilisent la websocket AIIR
+    private val aiirStations = mapOf(
+        16 to "So! Radio Oman"  // So Radio via AIIR websocket with Origin header
+    )
 
     // Stations de radio directe sans metadata (affiche "En direct")
-    private val liveOnlyStations = setOf(
-        16  // So! Radio Oman - no metadata available
+    private val liveOnlyStations = setOf<Int>(
+        // Stations without any metadata service
     )
 
     fun startMonitoring(stationId: Int, callback: (TrackMetadata?) -> Unit) {
@@ -426,32 +428,27 @@ class MetadataService {
         Log.d("MetadataService", "Connecting to AIIR WebSocket for station: $stationId")
 
         val wsUrl = "wss://metadata.aiir.net/now-playing"
+
+        // Add appropriate Origin header for the station
+        val originUrl = when {
+            stationId.contains("So! Radio") || stationId.contains("Oman") ->
+                "https://www.soradiooman.com"
+            else -> "https://www.radioapp.com"
+        }
+
+        Log.d("MetadataService", "Using Origin header: $originUrl")
+
         val request = Request.Builder()
             .url(wsUrl)
             .addHeader("User-Agent", "RadioApp/1.0")
+            .addHeader("Origin", originUrl)
             .build()
 
         aiirWebSocket = httpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d("MetadataService", "AIIR WebSocket connected successfully")
-                Log.d("MetadataService", "Sending identification for station: $stationId")
-
-                // Try different message formats to identify the station
-                // Format 1: Seulement le nom de la station
-                val identifyMessage1 = stationId
-
-                // Format 2: JSON avec station
-                val identifyMessage2 = """{"station":"$stationId"}"""
-
-                // Format 3: JSON avec format alternatif
-                val identifyMessage3 = """{"station_id":"$stationId"}"""
-
-                // Format 4: Seulement "CONNECT"
-                val identifyMessage4 = "CONNECT"
-
-                // Essayer le format 1 d'abord (seulement le nom)
-                webSocket.send(identifyMessage1)
-                Log.d("MetadataService", "Sent identification message: $identifyMessage1")
+                Log.d("MetadataService", "AIIR WebSocket connected successfully for station: $stationId")
+                Log.d("MetadataService", "Connected to AIIR now-playing feed")
+                // No need to send identification message - the server identifies by Origin header
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
