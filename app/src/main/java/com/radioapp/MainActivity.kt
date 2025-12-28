@@ -304,23 +304,17 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     private fun selectStation(station: RadioStation) {
         radioService?.let { service ->
-            // Track the current station
-            currentStation = station
-
-            // Check if we're already on this station
+            // Check if we're already on this station BEFORE updating
             val previousStation = service.getCurrentStation()
             android.util.Log.d("MainActivity", "selectStation called for ${station.id} ${station.name}, previousStation=${previousStation?.id} ${previousStation?.name}")
 
-            // Log stack trace if called multiple times quickly
-            val traces = Thread.currentThread().stackTrace
-            if (traces.size > 3) {
-                android.util.Log.d("MainActivity", "Called from: ${traces[3]}")
-            }
-
-            if (currentStation?.id == station.id) {
+            if (previousStation?.id == station.id) {
                 android.util.Log.d("MainActivity", "Already on station ${station.name}, ignoring duplicate call")
                 return@let
             }
+
+            // Track the current station
+            currentStation = station
 
             val wasPlaying = service.isPlaying()
 
