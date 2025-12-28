@@ -37,7 +37,7 @@ class MetadataService {
     private val radioFranceStations = mapOf(
         1 to 1,    // France Inter (api id: 1)
         2 to 5,    // France Culture (api id: 5)
-        // 3 to 47,   // France Info - désactivé, affiche uniquement le nom de la radio
+        3 to 3,    // France Info (api id: 3)
         6 to 7,    // FIP (api id: 7 - station principale)
         13 to 4    // France Musique (api id: 4)
     )

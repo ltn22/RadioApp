@@ -119,6 +119,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             statsManager = StatsManager.getInstance(this)
             setupRecyclerView()
             setupControls()
+            setupProgrammeLink()
             bindRadioService()
             startStatsUpdateTimer()
             updateTotalStats()
@@ -284,6 +285,29 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         }
     }
 
+    private fun setupProgrammeLink() {
+        // Initialize the programme link click listener once in onCreate
+        binding.tvProgramName.setOnClickListener {
+            android.util.Log.d("MainActivity", "Programme link clicked! URL: $currentProgramUrl")
+            if (!currentProgramUrl.isNullOrEmpty()) {
+                try {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(currentProgramUrl)
+                    )
+                    android.util.Log.d("MainActivity", "Starting activity with intent: $intent")
+                    startActivity(intent)
+                    android.util.Log.d("MainActivity", "Activity started successfully")
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Error opening URL: ${e.message}", e)
+                    Toast.makeText(this, "Erreur: Impossible d'ouvrir le lien", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                android.util.Log.e("MainActivity", "Programme URL is empty!")
+            }
+        }
+    }
+
     private fun bindRadioService() {
         // Just bind to the service - it will be created on demand
         // Don't start it as a foreground service until user actually plays something
@@ -389,26 +413,9 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         binding.tvProgramName.text = programText
                         binding.tvProgramName.visibility = android.view.View.VISIBLE
                         android.util.Log.d("MainActivity", "Displaying programme link: ${metadata.programUrl} with text: $programText")
-                        binding.tvProgramName.setOnClickListener {
-                            android.util.Log.d("MainActivity", "Programme link clicked! URL: $currentProgramUrl")
-                            if (!currentProgramUrl.isNullOrEmpty()) {
-                                try {
-                                    val intent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse(currentProgramUrl)
-                                    )
-                                    android.util.Log.d("MainActivity", "Starting activity with intent: $intent")
-                                    startActivity(intent)
-                                    android.util.Log.d("MainActivity", "Activity started successfully")
-                                } catch (e: Exception) {
-                                    android.util.Log.e("MainActivity", "Error opening URL: ${e.message}", e)
-                                }
-                            } else {
-                                android.util.Log.e("MainActivity", "Programme URL is empty!")
-                            }
-                        }
                     } else {
                         android.util.Log.d("MainActivity", "No programme URL in metadata")
+                        currentProgramUrl = null
                         binding.tvProgramName.visibility = android.view.View.GONE
                     }
 
