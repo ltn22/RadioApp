@@ -250,10 +250,30 @@ class RadioService : MediaBrowserServiceCompat() {
                         // Parcourir les métadonnées pour trouver les informations ICY
                         for (i in 0 until metadata.length()) {
                             val entry = metadata.get(i)
+                            Log.d(TAG, "Raw Metadata: $entry")
+                            
                             if (entry is IcyInfo) {
-                                val title = entry.title
+                                var title = entry.title
+                                
+                                // Fix encoding for legacy Shoutcast streams (often Latin-1)
+                                if (currentStation?.name == "Bide et Musique" || currentStation?.name == "Radio Nova") {
+                                    try {
+                                        // Shoutcast often sends Latin-1 but it gets decoded as UTF-8
+                                        // So we reverse the bad decoding: get the bytes as if they were UTF-8,
+                                        // then reinterpret them as Latin-1
+                                        val bytes = entry.title?.toByteArray(Charsets.UTF_8)
+                                        if (bytes != null) {
+                                           val newTitle = String(bytes, Charsets.ISO_8859_1)
+                                           Log.d(TAG, "Re-encoded title from Latin-1: $newTitle")
+                                           title = newTitle
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "Encoding conversion failed", e)
+                                    }
+                                }
+                                
                                 currentTrackTitle = title
-                                Log.d(TAG, "ICY Metadata received: $title")
+                                Log.d(TAG, "ICY Metadata processing: $title")
                                 listener?.onMetadataChanged(title, null)
 
                                 // Pour les stations non gérées par MetadataService (ICY uniquement),

@@ -440,22 +440,48 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
             if (title != null && title.isNotBlank()) {
                 // Parser le titre pour séparer artiste et titre si format "Artiste - Titre"
+                var artist = ""
+                var trackTitle = ""
+                
                 val displayText = if (title.contains(" - ")) {
                     val parts = title.split(" - ", limit = 2)
                     if (parts[0].isNotBlank()) {
+                        artist = parts[0].trim()
+                        trackTitle = parts[1].trim()
                         title // Format "Artiste - Titre"
                     } else {
-                        parts[1] // Juste le titre si commence par " - "
+                        trackTitle = parts[1].trim() // Juste le titre si commence par " - "
+                        parts[1]
                     }
                 } else {
+                    trackTitle = title.trim()
                     title
                 }
 
                 currentMetadataTitle = displayText
                 binding.tvCurrentStation.text = displayText
 
-                // Cacher la pochette car ICY ne fournit pas d'images
+                // Cacher la pochette en attendant le chargement
                 binding.ivAlbumCover.visibility = android.view.View.GONE
+                
+                // Si on a un artiste et un titre, essayer de trouver la pochette
+                if (artist.isNotEmpty() && trackTitle.isNotEmpty()) {
+                    scope.launch {
+                        val url = metadataService.fetchCoverFromItunesPublic(artist, trackTitle)
+                        if (url != null) {
+                            val bitmap = metadataService.downloadImagePublic(url)
+                            if (bitmap != null) {
+                                withContext(Dispatchers.Main) {
+                                    // Vérifier que le titre n'a pas changé entre temps
+                                    if (currentMetadataTitle == displayText) {
+                                        binding.ivAlbumCover.setImageBitmap(bitmap)
+                                        binding.ivAlbumCover.visibility = android.view.View.VISIBLE
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Démarrer un timer de 1 minute pour revenir au nom de la station
                 metadataResetJob = scope.launch {
@@ -464,6 +490,8 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                     val station = radioService?.getCurrentStation()
                     if (station != null) {
                         binding.tvCurrentStation.text = station.name
+                        // Cacher la pochette quand on revient au nom de la station
+                        binding.ivAlbumCover.visibility = android.view.View.GONE
                     }
                 }
             }

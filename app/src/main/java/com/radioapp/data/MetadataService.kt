@@ -2,6 +2,7 @@ package com.radioapp.data
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.net.URL
@@ -37,12 +38,18 @@ class MetadataService {
         36 to "bbc_radio_fourfm" // BBC Radio 4
     )
 
+    // Stations qui tentent de récupérer les métadonnées depuis web scraping
+    private val webScrapingStations = mapOf(
+        15 to "bide"  // Bide et Musique - via radio-info.php
+    )
+
     fun startMonitoring(stationId: Int, callback: (TrackMetadata?) -> Unit) {
         stopMonitoring()
         onMetadataUpdate = callback
 
         val radioFranceId = radioFranceStations[stationId]
         val bbcServiceId = bbcStations[stationId]
+        val scrapingKey = webScrapingStations[stationId]
 
         if (radioFranceId != null) {
             metadataJob = scope.launch {
@@ -70,6 +77,20 @@ class MetadataService {
                         e.printStackTrace()
                     }
                     delay(15000) // Vérifier toutes les 15 secondes
+                }
+            }
+        } else if (scrapingKey != null) {
+            metadataJob = scope.launch {
+                while (isActive) {
+                    try {
+                        val metadata = fetchWebMetadata(scrapingKey)
+                        withContext(Dispatchers.Main) {
+                            onMetadataUpdate?.invoke(metadata)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    delay(20000) // Vérifier toutes les 20 secondes
                 }
             }
         }
@@ -268,11 +289,16 @@ class MetadataService {
                 val results = data.optJSONArray("results")
                 if (results != null && results.length() > 0) {
                     val firstResult = results.getJSONObject(0)
-                    firstResult.optString("artworkUrl600", null)
-                        ?: firstResult.optString("artworkUrl100", null)
-                } else {
-                    null
+                    val url600 = firstResult.optString("artworkUrl600", "")
+                    if (url600.isNotEmpty()) {
+                        return@withContext url600
+                    }
+                    val url100 = firstResult.optString("artworkUrl100", "")
+                    if (url100.isNotEmpty()) {
+                        return@withContext url100
+                    }
                 }
+                null
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
@@ -282,5 +308,88 @@ class MetadataService {
 
     fun downloadImagePublic(urlString: String): Bitmap? {
         return downloadImage(urlString)
+    }
+
+    private suspend fun fetchWebMetadata(stationKey: String): TrackMetadata? {
+        return withContext(Dispatchers.IO) {
+            try {
+                when (stationKey) {
+                    "bide" -> fetchBideEtMusiqueMetadata()
+                    else -> null
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    private suspend fun fetchBideEtMusiqueMetadata(): TrackMetadata? {
+        return try {
+            Log.d("MetadataService", "Fetching Bide et Musique metadata from radio-info.php...")
+
+            // Récupérer depuis la page radio-info.php qui contient les métadonnées en temps réel
+            val url = URL("https://www.bide-et-musique.com/radio-info.php")
+            val connection = url.openConnection()
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
+
+            val html = connection.getInputStream().bufferedReader().use { it.readText() }
+            Log.d("MetadataService", "HTML fetched, length=${html.length}")
+
+            // Log du HTML pour déboguer
+            if (html.length < 2000) {
+                Log.d("MetadataService", "HTML content: $html")
+            } else {
+                Log.d("MetadataService", "HTML (first 500 chars): ${html.take(500)}")
+            }
+
+            // Chercher l'artiste et le titre dans le HTML
+            var artist = ""
+            var title = ""
+
+            // Normaliser le HTML en supprimant les newlines et les espaces multiples pour faciliter le parsing
+            val normalizedHtml = html.replace("\n", " ").replace(Regex("""\s+"""), " ")
+
+            // Extraire le titre depuis <p class="titre-song"><a>Titre</a>
+            val titlePattern = """<p\s+class="titre-song"[^>]*>[^<]*<a[^>]*>([^<]+)</a>""".toRegex()
+            val titleMatch = titlePattern.find(normalizedHtml)
+            if (titleMatch != null && titleMatch.groupValues.size >= 2) {
+                title = titleMatch.groupValues[1].trim()
+                Log.d("MetadataService", "Extracted title: '$title'")
+            }
+
+            // Extraire l'artiste depuis <p class="titre-song2"><a>Artiste</a>
+            val artistPattern = """<p\s+class="titre-song2"[^>]*>[^<]*<a[^>]*>([^<]+)</a>""".toRegex()
+            val artistMatch = artistPattern.find(normalizedHtml)
+            if (artistMatch != null && artistMatch.groupValues.size >= 2) {
+                artist = artistMatch.groupValues[1].trim()
+                Log.d("MetadataService", "Extracted artist: '$artist'")
+            }
+
+            if (artist.isNotEmpty() && title.isNotEmpty()) {
+                // Essayer de récupérer la pochette depuis iTunes
+                val coverUrl = fetchCoverFromItunesPublic(artist, title)
+                val bitmap = if (coverUrl != null) {
+                    downloadImage(coverUrl)
+                } else null
+
+                return TrackMetadata(
+                    title = title,
+                    artist = artist,
+                    album = null,
+                    coverUrl = coverUrl,
+                    coverBitmap = bitmap
+                )
+            } else {
+                Log.d("MetadataService", "Could not parse artist/title from HTML")
+            }
+            null
+        } catch (e: Exception) {
+            Log.e("MetadataService", "Error fetching Bide metadata", e)
+            e.printStackTrace()
+            null
+        }
     }
 }
