@@ -121,7 +121,7 @@ class RadioWidgetProvider : AppWidgetProvider() {
         currentStationId: Int?
     ) {
         val views = RemoteViews(context.packageName, R.layout.widget_layout)
-        val statsManager = StatsManager(context)
+        val statsManager = StatsManager.getInstance(context)
 
         // Récupérer la station actuelle sauvegardée si non fournie
         val actualCurrentStationId = currentStationId ?: run {
@@ -191,7 +191,7 @@ class RadioWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(containerViewId, pendingIntent)
         }
 
-        statsManager.cleanup()
+
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 }

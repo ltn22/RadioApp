@@ -142,7 +142,7 @@ class RadioService : MediaBrowserServiceCompat() {
 
     override fun onCreate() {
         super.onCreate()
-        statsManager = StatsManager(this)
+        statsManager = StatsManager.getInstance(this)
         createNotificationChannel()
         initializeMediaSession()
         initializePlayer()

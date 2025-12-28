@@ -114,7 +114,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             // Demander la permission de notification pour Android 13+
             requestNotificationPermission()
 
-            statsManager = StatsManager(this)
+            statsManager = StatsManager.getInstance(this)
             setupRecyclerView()
             setupControls()
             bindRadioService()
