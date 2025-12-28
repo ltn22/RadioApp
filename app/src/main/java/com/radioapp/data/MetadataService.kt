@@ -503,22 +503,24 @@ class MetadataService {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 Log.d("MetadataService", "AIIR WebSocket message received (${text.length} chars): ${text.take(200)}")
-                try {
-                    val metadata = parseAIIRMetadata(text)
-                    if (metadata != null) {
-                        Log.d("MetadataService", "Successfully parsed AIIR metadata")
-                        Log.d("MetadataService", "onMetadataUpdate callback is null? ${onMetadataUpdate == null}")
-                        MainScope().launch {
-                            Log.d("MetadataService", "Calling onMetadataUpdate with: ${metadata.artist} - ${metadata.title}")
-                            onMetadataUpdate?.invoke(metadata)
-                            Log.d("MetadataService", "onMetadataUpdate callback completed")
+                scope.launch {
+                    try {
+                        val metadata = parseAIIRMetadata(text)
+                        if (metadata != null) {
+                            Log.d("MetadataService", "Successfully parsed AIIR metadata")
+                            Log.d("MetadataService", "onMetadataUpdate callback is null? ${onMetadataUpdate == null}")
+                            MainScope().launch {
+                                Log.d("MetadataService", "Calling onMetadataUpdate with: ${metadata.artist} - ${metadata.title}")
+                                onMetadataUpdate?.invoke(metadata)
+                                Log.d("MetadataService", "onMetadataUpdate callback completed")
+                            }
+                        } else {
+                            Log.d("MetadataService", "Could not parse AIIR metadata from message")
                         }
-                    } else {
-                        Log.d("MetadataService", "Could not parse AIIR metadata from message")
+                    } catch (e: Exception) {
+                        Log.e("MetadataService", "Error parsing AIIR message", e)
+                        e.printStackTrace()
                     }
-                } catch (e: Exception) {
-                    Log.e("MetadataService", "Error parsing AIIR message", e)
-                    e.printStackTrace()
                 }
             }
 
@@ -538,7 +540,7 @@ class MetadataService {
         })
     }
 
-    private fun parseAIIRMetadata(jsonString: String): TrackMetadata? {
+    private suspend fun parseAIIRMetadata(jsonString: String): TrackMetadata? {
         return try {
             // Handle error messages from the server
             if (jsonString.contains("not recognised") || jsonString.contains("not recognized") ||
@@ -589,6 +591,13 @@ class MetadataService {
 
             if (title.isNotEmpty() || artist.isNotEmpty()) {
                 Log.d("MetadataService", "Parsed AIIR metadata - Artist: '$artist', Title: '$title'")
+
+                // Try to get cover from iTunes (use title and artist, not programme image)
+                coverUrl = null  // Don't use programme image
+                if (artist.isNotEmpty() && title.isNotEmpty()) {
+                    coverUrl = fetchCoverFromItunesPublic(artist, title)
+                    Log.d("MetadataService", "iTunes cover URL: $coverUrl")
+                }
 
                 // Télécharger la pochette si disponible
                 val bitmap = if (!coverUrl.isNullOrEmpty() && coverUrl.startsWith("http")) {
