@@ -37,9 +37,14 @@ class MetadataService {
     private val radioFranceStations = mapOf(
         1 to 1,    // France Inter (api id: 1)
         2 to 5,    // France Culture (api id: 5)
-        // 3 disabled - France Info national not available via Radio France API
+        3 to 3,    // France Info (api id: 3)
         6 to 7,    // FIP (api id: 7 - station principale)
         13 to 4    // France Musique (api id: 4)
+    )
+
+    // URL par défaut pour les stations sans lien programme spécifique
+    private val radioFranceDefaultUrls = mapOf(
+        3 to "https://www.radiofrance.fr/franceinfo"  // France Info -> page principale
     )
 
     // IDs des stations BBC
@@ -94,7 +99,7 @@ class MetadataService {
             metadataJob = scope.launch {
                 while (isActive) {
                     try {
-                        val metadata = fetchRadioFranceMetadata(radioFranceId)
+                        val metadata = fetchRadioFranceMetadata(radioFranceId, stationId)
                         withContext(Dispatchers.Main) {
                             onMetadataUpdate?.invoke(metadata)
                         }
@@ -149,7 +154,7 @@ class MetadataService {
         scope.cancel()
     }
 
-    private suspend fun fetchRadioFranceMetadata(stationId: Int): TrackMetadata? {
+    private suspend fun fetchRadioFranceMetadata(stationId: Int, userStationId: Int = -1): TrackMetadata? {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL("https://api.radiofrance.fr/livemeta/pull/$stationId")
@@ -216,6 +221,9 @@ class MetadataService {
                             val path = step.optString("path", null)
                             if (!path.isNullOrEmpty()) {
                                 programUrl = "https://www.radiofrance.fr/$path"
+                            } else if (userStationId > 0) {
+                                // Fallback: utiliser l'URL par défaut de la station si pas de path trouvé
+                                programUrl = radioFranceDefaultUrls[userStationId]
                             }
 
                             Log.d("MetadataService", "Radio France metadata - Title: '$title', Artist: '$artist', Program URL: $programUrl")
