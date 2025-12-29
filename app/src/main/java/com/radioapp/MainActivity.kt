@@ -351,9 +351,18 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             currentMetadataTitle = null
             currentProgramUrl = null
             metadataService.stopMonitoring()
-            binding.tvProgramName.visibility = android.view.View.GONE
             binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image précédente
             binding.ivAlbumCover.visibility = android.view.View.GONE
+
+            // Afficher le lien fallback pour France Info
+            if (station.id == 3) {
+                currentProgramUrl = "https://www.radiofrance.fr/franceinfo"
+                binding.tvProgramName.text = "Voir l'émission"
+                binding.tvProgramName.visibility = android.view.View.VISIBLE
+                android.util.Log.d("MainActivity", "Displaying France Info fallback link in selectStation")
+            } else {
+                binding.tvProgramName.visibility = android.view.View.GONE
+            }
 
             // Trier les stations avant de lancer la nouvelle
             adapter.sortStations()
@@ -531,14 +540,6 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
                 currentMetadataTitle = displayText
                 binding.tvCurrentStation.text = displayText
-
-                // Ajouter le lien programme fallback pour France Info (ICY metadata)
-                if (currentStation?.id == 3) {
-                    currentProgramUrl = "https://www.radiofrance.fr/franceinfo"
-                    binding.tvProgramName.text = "Voir l'émission"
-                    binding.tvProgramName.visibility = android.view.View.VISIBLE
-                    android.util.Log.d("MainActivity", "Displaying France Info programme link with ICY metadata")
-                }
 
                 // Cacher la pochette en attendant le chargement
                 binding.ivAlbumCover.visibility = android.view.View.GONE
