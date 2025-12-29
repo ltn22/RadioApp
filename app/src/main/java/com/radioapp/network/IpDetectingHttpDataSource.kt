@@ -62,7 +62,8 @@ class IpDetectingHttpDataSource(
 
                     // Créer une socket de test pour voir quelle adresse IP est réellement utilisée
                     val socket = Socket()
-                    socket.connect(java.net.InetSocketAddress(host, port), 5000)
+                    // Augmenter le timeout à 10 secondes pour les ports non-standard comme 9100 (Bide et Musique)
+                    socket.connect(java.net.InetSocketAddress(host, port), 10000)
 
                     // Récupérer l'adresse IP distante réellement connectée
                     val remoteAddress = socket.inetAddress
