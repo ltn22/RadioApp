@@ -532,9 +532,17 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                 currentMetadataTitle = displayText
                 binding.tvCurrentStation.text = displayText
 
+                // Ajouter le lien programme fallback pour France Info (ICY metadata)
+                if (currentStation?.id == 3) {
+                    currentProgramUrl = "https://www.radiofrance.fr/franceinfo"
+                    binding.tvProgramName.text = "Voir l'émission"
+                    binding.tvProgramName.visibility = android.view.View.VISIBLE
+                    android.util.Log.d("MainActivity", "Displaying France Info programme link with ICY metadata")
+                }
+
                 // Cacher la pochette en attendant le chargement
                 binding.ivAlbumCover.visibility = android.view.View.GONE
-                
+
                 // Si on a un artiste et un titre, essayer de trouver la pochette
                 if (artist.isNotEmpty() && trackTitle.isNotEmpty()) {
                     scope.launch {
