@@ -163,7 +163,28 @@ class MetadataService {
                 connection.readTimeout = 10000
                 connection.setRequestProperty("User-Agent", "RadioApp/1.0")
 
-                val json = connection.getInputStream().bufferedReader().use { it.readText() }
+                val responseCode = (connection as java.net.HttpURLConnection).responseCode
+                Log.d("MetadataService", "API response code for stationId=$stationId: $responseCode")
+
+                val json = if (responseCode == 200) {
+                    connection.getInputStream().bufferedReader().use { it.readText() }
+                } else {
+                    Log.e("MetadataService", "API error for stationId=$stationId: HTTP $responseCode - using fallback")
+                    // Fallback for stations without API support (e.g., France Info)
+                    if (userStationId > 0 && radioFranceDefaultUrls.containsKey(userStationId)) {
+                        Log.d("MetadataService", "Using default URL for stationId=$userStationId")
+                        return@withContext TrackMetadata(
+                            title = "",
+                            artist = "",
+                            album = null,
+                            coverUrl = null,
+                            coverBitmap = null,
+                            programUrl = radioFranceDefaultUrls[userStationId]
+                        )
+                    }
+                    return@withContext null
+                }
+                Log.d("MetadataService", "API response for stationId=$stationId: ${json.take(100)}")
                 val data = JSONObject(json)
 
                 // Parcourir les steps pour trouver le morceau en cours
@@ -241,6 +262,7 @@ class MetadataService {
                 }
                 null
             } catch (e: Exception) {
+                Log.e("MetadataService", "Error fetching Radio France metadata for stationId=$stationId: ${e.message}", e)
                 e.printStackTrace()
                 null
             }
