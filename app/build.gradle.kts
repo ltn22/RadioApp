@@ -59,6 +59,9 @@ dependencies {
     implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
     implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
 
+    // OkHttp3 for WebSocket support
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+
     // Android Auto support
     implementation("androidx.media:media:1.7.0")
     

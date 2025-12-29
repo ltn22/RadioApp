@@ -8,6 +8,7 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.Socket
 import java.net.URL
+import android.util.Log
 
 class IpDetectingHttpDataSource(
     userAgent: String,
@@ -21,10 +22,11 @@ class IpDetectingHttpDataSource(
     connectTimeoutMs,
     readTimeoutMs,
     allowCrossProtocolRedirects,
-    null  // defaultRequestProperties
+    null
 ) {
 
     init {
+        Log.d("IpDetectingHttpDataSource", "INIT: IpDetectingHttpDataSource instantiated")
         // Attacher le TransferListener après construction
         transferListener?.let { addTransferListener(it) }
     }
@@ -32,7 +34,21 @@ class IpDetectingHttpDataSource(
     private var ipDetected = false
 
     override fun open(dataSpec: DataSpec): Long {
-        val result = super.open(dataSpec)
+        // Ajouter les en-têtes ICY pour obtenir les métadonnées Shoutcast
+        Log.d("IpDetectingHttpDataSource", "open() called for ${dataSpec.uri}")
+
+        // Ajouter l'en-tête ICY au DataSpec
+        val newHeaders = mutableMapOf<String, String>()
+        newHeaders.putAll(dataSpec.httpRequestHeaders)
+        newHeaders["Icy-Metadata"] = "1"
+
+        Log.d("IpDetectingHttpDataSource", "Adding header: Icy-Metadata=1")
+
+        val newDataSpec = dataSpec.buildUpon()
+            .setHttpRequestHeaders(newHeaders)
+            .build()
+
+        val result = super.open(newDataSpec)
 
         // Détecter l'IP seulement une fois par station, en arrière-plan
         if (!ipDetected) {
@@ -46,7 +62,8 @@ class IpDetectingHttpDataSource(
 
                     // Créer une socket de test pour voir quelle adresse IP est réellement utilisée
                     val socket = Socket()
-                    socket.connect(java.net.InetSocketAddress(host, port), 5000)
+                    // Augmenter le timeout à 10 secondes pour les ports non-standard comme 9100 (Bide et Musique)
+                    socket.connect(java.net.InetSocketAddress(host, port), 10000)
 
                     // Récupérer l'adresse IP distante réellement connectée
                     val remoteAddress = socket.inetAddress
@@ -81,6 +98,7 @@ class IpDetectingHttpDataSource(
     ) : HttpDataSource.Factory {
 
         override fun createDataSource(): HttpDataSource {
+            Log.d("IpDetectingHttpDataSource", "Factory.createDataSource() called")
             return IpDetectingHttpDataSource(
                 userAgent,
                 connectTimeoutMs,
@@ -92,6 +110,7 @@ class IpDetectingHttpDataSource(
         }
 
         override fun setDefaultRequestProperties(defaultRequestProperties: MutableMap<String, String>): HttpDataSource.Factory {
+            // Les en-têtes ICY sont toujours présents
             return this
         }
     }

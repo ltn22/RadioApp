@@ -5,11 +5,22 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.*
 import java.util.Locale
 
-class StatsManager(context: Context) {
+class StatsManager private constructor(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("radio_stats", Context.MODE_PRIVATE)
     private var currentStationId: Int? = null
     private var startTime: Long = 0
     private var isPlaying = false
+    
+    companion object {
+        @Volatile
+        private var INSTANCE: StatsManager? = null
+
+        fun getInstance(context: Context): StatsManager {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: StatsManager(context.applicationContext).also { INSTANCE = it }
+            }
+        }
+    }
 
     fun startListening(stationId: Int) {
         if (currentStationId != stationId) {
@@ -28,7 +39,8 @@ class StatsManager(context: Context) {
             addListeningTime(currentStationId!!, duration)
         }
         isPlaying = false
-        currentStationId = null
+        // Note: We don't nullify currentStationId here to allow resuming with correct stat tracking
+        // But if we switch stations, startListening will handle the change
     }
     
     fun pauseListening() {
@@ -60,8 +72,6 @@ class StatsManager(context: Context) {
     fun isListening(): Boolean {
         return isPlaying && currentStationId != null
     }
-    
-
     
     fun incrementPlayCount(stationId: Int) {
         val currentCount = prefs.getInt("play_count_$stationId", 0)

@@ -78,7 +78,17 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var metadataResetJob: Job? = null
     private var currentMetadataTitle: String? = null
+    private var currentStation: RadioStation? = null  // Track current station to ignore ICY for AIIR stations
+    private var currentProgramUrl: String? = null  // URL du programme (Radio France)
     private val metadataService = com.radioapp.data.MetadataService()
+    private var isFranceCultureAlarmSet = false
+    private var alarmHour = 6
+    private var alarmMinute = 30
+    
+    // Add imports for Dialog
+    // import android.app.AlertDialog
+    // import android.widget.EditText
+    // import android.text.InputType
 
     private val radioStations get() = Companion.radioStations
 
@@ -106,9 +116,10 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             // Demander la permission de notification pour Android 13+
             requestNotificationPermission()
 
-            statsManager = StatsManager(this)
+            statsManager = StatsManager.getInstance(this)
             setupRecyclerView()
             setupControls()
+            setupProgrammeLink()
             bindRadioService()
             startStatsUpdateTimer()
             updateTotalStats()
@@ -209,10 +220,20 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         val sortedStations = radioStations.sortedByDescending { station ->
             statsManager.getPlayCount(station.id)
         }
-        
-        adapter = RadioStationAdapter(sortedStations, statsManager) { station ->
+
+        adapter = RadioStationAdapter(sortedStations, statsManager, { station ->
             selectStation(station)
-        }
+        }, { isSet ->
+            isFranceCultureAlarmSet = isSet
+            if (isSet) {
+                val timeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
+                Toast.makeText(this, "Réveil France Culture activé pour $timeStr", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Réveil désactivé", Toast.LENGTH_SHORT).show()
+            }
+        }, {
+            showTimeEditDialog()
+        })
         
         binding.rvRadioStations.apply {
             layoutManager = GridLayoutManager(this@MainActivity, 2)
@@ -264,6 +285,29 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         }
     }
 
+    private fun setupProgrammeLink() {
+        // Initialize the programme link click listener once in onCreate
+        binding.tvProgramName.setOnClickListener {
+            android.util.Log.d("MainActivity", "Programme link clicked! URL: $currentProgramUrl")
+            if (!currentProgramUrl.isNullOrEmpty()) {
+                try {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(currentProgramUrl)
+                    )
+                    android.util.Log.d("MainActivity", "Starting activity with intent: $intent")
+                    startActivity(intent)
+                    android.util.Log.d("MainActivity", "Activity started successfully")
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Error opening URL: ${e.message}", e)
+                    Toast.makeText(this, "Erreur: Impossible d'ouvrir le lien", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                android.util.Log.e("MainActivity", "Programme URL is empty!")
+            }
+        }
+    }
+
     private fun bindRadioService() {
         // Just bind to the service - it will be created on demand
         // Don't start it as a foreground service until user actually plays something
@@ -285,43 +329,82 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     private fun selectStation(station: RadioStation) {
         radioService?.let { service ->
-            // Stop current playback if any
+            // Check if we're already on this station BEFORE updating
+            val previousStation = service.getCurrentStation()
+            android.util.Log.d("MainActivity", "selectStation called for ${station.id} ${station.name}, previousStation=${previousStation?.id} ${previousStation?.name}")
+
+            if (previousStation?.id == station.id) {
+                android.util.Log.d("MainActivity", "Already on station ${station.name}, ignoring duplicate call")
+                return@let
+            }
+
+            // Track the current station
+            currentStation = station
+
+            val wasPlaying = service.isPlaying()
+
+            // Stop tracking stats for the previous station
             statsManager.stopListening()
-            service.stop()
 
             // Réinitialiser les métadonnées et cacher la pochette
             metadataResetJob?.cancel()
             currentMetadataTitle = null
+            currentProgramUrl = null
             metadataService.stopMonitoring()
             binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image précédente
             binding.ivAlbumCover.visibility = android.view.View.GONE
+
+            // Afficher le lien fallback pour France Info
+            if (station.id == 3) {
+                currentProgramUrl = "https://www.radiofrance.fr/franceinfo"
+                binding.tvProgramName.text = "Voir l'émission"
+                binding.tvProgramName.visibility = android.view.View.VISIBLE
+                android.util.Log.d("MainActivity", "Displaying France Info fallback link in selectStation")
+            } else {
+                binding.tvProgramName.visibility = android.view.View.GONE
+            }
 
             // Trier les stations avant de lancer la nouvelle
             adapter.sortStations()
 
             // Load new station
+            // Note: If switching stations while playing, we don't call stop() to avoid
+            // losing foreground state (which causes crash on Android 12+ in background)
+            // loadStation handles the internal ExoPlayer transition
             service.loadStation(station)
+            
             binding.tvCurrentStation.text = station.name
             updateTotalStats()
 
             // Update adapter to show current playing station
             adapter.setCurrentPlayingStation(station.id)
 
-            // Start playing automatically
-            ensureServiceStarted()
+            // Start playing automatically if it wasn't already or just continue
+            if (!wasPlaying) {
+                 ensureServiceStarted()
+            }
             service.play()
+            
+            // Start stats tracking for new station
             statsManager.startListening(station.id)
 
             // Démarrer le monitoring des métadonnées pour les stations Radio France
             metadataService.startMonitoring(station.id) { metadata ->
                 if (metadata != null) {
+                    android.util.Log.d("MainActivity", "Metadata callback received: ${metadata.artist} - ${metadata.title}")
                     // Construire le texte en évitant le tiret si l'artiste est vide
                     val displayText = if (metadata.artist.isNotBlank()) {
                         "${metadata.artist} - ${metadata.title}"
                     } else {
                         metadata.title
                     }
-                    binding.tvCurrentStation.text = displayText
+                    android.util.Log.d("MainActivity", "Setting tvCurrentStation to: $displayText")
+                    try {
+                        binding.tvCurrentStation.text = displayText
+                        android.util.Log.d("MainActivity", "tvCurrentStation text set successfully")
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Error setting text: ${e.message}", e)
+                    }
 
                     // Afficher la pochette si disponible
                     if (metadata.coverBitmap != null) {
@@ -331,15 +414,33 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         binding.ivAlbumCover.visibility = android.view.View.GONE
                     }
 
+                    // Afficher le programme/émission si disponible (Radio France)
+                    if (!metadata.programUrl.isNullOrEmpty()) {
+                        currentProgramUrl = metadata.programUrl
+                        // Afficher le nom du programme (album contient titleConcept) ou un texte par défaut
+                        val programText = metadata.album?.takeIf { it.isNotBlank() } ?: "Voir l'émission"
+                        binding.tvProgramName.text = programText
+                        binding.tvProgramName.visibility = android.view.View.VISIBLE
+                        android.util.Log.d("MainActivity", "Displaying programme link: ${metadata.programUrl} with text: $programText")
+                    } else {
+                        android.util.Log.d("MainActivity", "No programme URL in metadata")
+                        currentProgramUrl = null
+                        binding.tvProgramName.visibility = android.view.View.GONE
+                    }
+
                     // Annuler le timer précédent
                     metadataResetJob?.cancel()
                     currentMetadataTitle = displayText
 
                     // Timer de 1 minute pour revenir au nom de la station
                     metadataResetJob = scope.launch {
+                        android.util.Log.d("MainActivity", "Metadata timeout timer started for: $displayText")
                         delay(60000)
+                        android.util.Log.d("MainActivity", "Metadata timeout! Resetting to station name: ${station.name}")
                         currentMetadataTitle = null
+                        currentProgramUrl = null
                         binding.tvCurrentStation.text = station.name
+                        binding.tvProgramName.visibility = android.view.View.GONE
                         binding.ivAlbumCover.setImageBitmap(null) // Effacer l'image
                         binding.ivAlbumCover.visibility = android.view.View.GONE
                     }
@@ -408,27 +509,59 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     override fun onMetadataChanged(title: String?, artworkUri: String?) {
         runOnUiThread {
+            // Ignore ICY metadata for AIIR stations - use WebSocket metadata instead
+            if (currentStation?.id == 16) {  // So Radio uses AIIR
+                android.util.Log.d("MainActivity", "Ignoring ICY metadata for AIIR station: $title")
+                return@runOnUiThread
+            }
+
             // Annuler le timer précédent
             metadataResetJob?.cancel()
 
             if (title != null && title.isNotBlank()) {
                 // Parser le titre pour séparer artiste et titre si format "Artiste - Titre"
+                var artist = ""
+                var trackTitle = ""
+                
                 val displayText = if (title.contains(" - ")) {
                     val parts = title.split(" - ", limit = 2)
                     if (parts[0].isNotBlank()) {
+                        artist = parts[0].trim()
+                        trackTitle = parts[1].trim()
                         title // Format "Artiste - Titre"
                     } else {
-                        parts[1] // Juste le titre si commence par " - "
+                        trackTitle = parts[1].trim() // Juste le titre si commence par " - "
+                        parts[1]
                     }
                 } else {
+                    trackTitle = title.trim()
                     title
                 }
 
                 currentMetadataTitle = displayText
                 binding.tvCurrentStation.text = displayText
 
-                // Cacher la pochette car ICY ne fournit pas d'images
+                // Cacher la pochette en attendant le chargement
                 binding.ivAlbumCover.visibility = android.view.View.GONE
+
+                // Si on a un artiste et un titre, essayer de trouver la pochette
+                if (artist.isNotEmpty() && trackTitle.isNotEmpty()) {
+                    scope.launch {
+                        val url = metadataService.fetchCoverFromItunesPublic(artist, trackTitle)
+                        if (url != null) {
+                            val bitmap = metadataService.downloadImagePublic(url)
+                            if (bitmap != null) {
+                                withContext(Dispatchers.Main) {
+                                    // Vérifier que le titre n'a pas changé entre temps
+                                    if (currentMetadataTitle == displayText) {
+                                        binding.ivAlbumCover.setImageBitmap(bitmap)
+                                        binding.ivAlbumCover.visibility = android.view.View.VISIBLE
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Démarrer un timer de 1 minute pour revenir au nom de la station
                 metadataResetJob = scope.launch {
@@ -437,6 +570,8 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                     val station = radioService?.getCurrentStation()
                     if (station != null) {
                         binding.tvCurrentStation.text = station.name
+                        // Cacher la pochette quand on revient au nom de la station
+                        binding.ivAlbumCover.visibility = android.view.View.GONE
                     }
                 }
             }
@@ -484,9 +619,27 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private fun startStatsUpdateTimer() {
         scope.launch {
             while (isActive) {
-                delay(1000) // 1 seconde
                 adapter.updateStats()
                 updateTotalStats()
+                
+                // Vérifier l'heure pour le réveil France Culture (06:30:00)
+                if (isFranceCultureAlarmSet) {
+                    val now = java.time.LocalTime.now()
+                    if (now.hour == alarmHour && now.minute == alarmMinute && now.second == 0) {
+                        // Si une station est en cours de lecture et que ce n'est pas déjà France Culture
+                        if (radioService?.isPlaying() == true && radioService?.getCurrentStation()?.id != 2) {
+                            val currentStation = radioStations.find { it.id == 2 }
+                            if (currentStation != null) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@MainActivity, "Réveil : Lancement de France Culture", Toast.LENGTH_LONG).show()
+                                    selectStation(currentStation)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                delay(1000) // 1 seconde
 
                 // Mettre à jour le widget avec la station en cours
                 val currentStationId = radioService?.getCurrentStation()?.id
@@ -530,6 +683,47 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         } catch (e: Exception) {
             binding.tvBuildDate.text = "Build: N/A"
         }
+    }
+
+    private fun showTimeEditDialog() {
+        val input = android.widget.EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_DATETIME or android.text.InputType.TYPE_DATETIME_VARIATION_TIME
+        input.hint = "HH:mm"
+        input.setText(String.format("%02d:%02d", alarmHour, alarmMinute))
+        input.gravity = android.view.Gravity.CENTER
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Régler l'heure du réveil")
+            .setView(input)
+            .setPositiveButton("OK") { _, _ ->
+                val timeStr = input.text.toString()
+                try {
+                    val parts = timeStr.split(":")
+                    if (parts.size == 2) {
+                        val h = parts[0].toInt()
+                        val m = parts[1].toInt()
+                        
+                        if (h in 0..23 && m in 0..59) {
+                            alarmHour = h
+                            alarmMinute = m
+                            
+                            val newTimeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
+                            adapter.alarmTimeText = newTimeStr
+                            adapter.notifyDataSetChanged() // Refresh to update clock text
+                            
+                            Toast.makeText(this, "Réveil réglé sur $newTimeStr", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Heure invalide (00:00 - 23:59)", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(this, "Format invalide. Utilisez HH:mm", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Erreur de format", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
     }
 
     override fun onDestroy() {
