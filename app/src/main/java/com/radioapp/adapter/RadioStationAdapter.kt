@@ -24,6 +24,17 @@ class RadioStationAdapter(
     private var currentIpVersion: String = "N/A"
     private val stationsWithClock = HashSet<Int>()
 
+    var isAlarmSet: Boolean
+        get() = stationsWithClock.contains(STATION_ID_FRANCE_CULTURE)
+        set(value) {
+            if (value) {
+                stationsWithClock.add(STATION_ID_FRANCE_CULTURE)
+            } else {
+                stationsWithClock.remove(STATION_ID_FRANCE_CULTURE)
+            }
+            notifyDataSetChanged()
+        }
+
     companion object {
         private const val PAYLOAD_STATS_UPDATE = "stats_update"
         private const val STATION_ID_FRANCE_CULTURE = 2

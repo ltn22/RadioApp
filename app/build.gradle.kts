@@ -59,6 +59,11 @@ dependencies {
     implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
     implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
 
+    // Google Cast / Chromecast support
+    implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
+    implementation("com.google.android.exoplayer:extension-cast:2.19.1")
+    implementation("androidx.mediarouter:mediarouter:1.6.0")
+
     // OkHttp3 for WebSocket support
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
 

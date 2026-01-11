@@ -82,27 +82,50 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="4dp"
                 android:text="@string/play" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btnPause"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
-                android:text="@string/pause" />
+                android:src="@drawable/ic_pause"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/pause"
+                android:scaleType="centerInside" />
 
             <Button
                 android:id="@+id/btnStop"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
                 android:text="@string/stop" />
 
+            <!-- Chromecast button -->
+            <androidx.mediarouter.app.MediaRouteButton
+                android:id="@+id/mediaRouteButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="4dp"
+                android:mediaRouteTypes="user" />
+
         </LinearLayout>
+
+        <!-- Casting status indicator -->
+        <TextView
+            android:id="@+id/tvCastingStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textAlignment="center"
+            android:textSize="12sp"
+            android:textColor="@color/teal_700"
+            android:visibility="gone"
+            android:layout_marginTop="8dp" />
 
         <Button
             android:id="@+id/btnSkipBuffer"

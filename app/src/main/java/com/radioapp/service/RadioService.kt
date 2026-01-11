@@ -52,6 +52,7 @@ import com.radioapp.model.RadioStation
 import com.radioapp.data.StatsManager
 import com.radioapp.data.MetadataService
 import com.radioapp.data.TrackMetadata
+import com.radioapp.cast.CastManager
 import kotlinx.coroutines.*
 
 class RadioService : MediaBrowserServiceCompat() {
@@ -110,6 +111,9 @@ class RadioService : MediaBrowserServiceCompat() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var sessionTimeUpdaterJob: Job? = null
 
+    // Chromecast support
+    private var castManager: CastManager? = null
+
     // TransferListener pour compter les octets transférés
     private val transferListener = object : TransferListener {
         override fun onTransferInitializing(source: DataSource, dataSpec: DataSpec, isNetwork: Boolean) {}
@@ -130,6 +134,7 @@ class RadioService : MediaBrowserServiceCompat() {
         fun onTrackMetadataChanged(metadata: TrackMetadata?)
         fun onIpVersionChanged(ipVersion: String)
         fun onSearchStatus(status: String)
+        fun onCastStateChanged(isCasting: Boolean)
     }
     
     private var listener: RadioServiceListener? = null
@@ -146,9 +151,50 @@ class RadioService : MediaBrowserServiceCompat() {
         createNotificationChannel()
         initializeMediaSession()
         initializePlayer()
+        initializeCastManager()
         // Set the session token for Android Auto
         sessionToken = mediaSession.sessionToken
         // Don't start foreground here - will be done in play() to avoid Android 12+ restrictions
+    }
+
+    private fun initializeCastManager() {
+        try {
+            castManager = CastManager(this).apply {
+                listener = object : CastManager.CastManagerListener {
+                    override fun onCastSessionStarted() {
+                        Log.d(TAG, "Cast session started - switching to remote playback, currentStation=${currentStation?.name}")
+                        // Pause local playback when casting starts
+                        if (::exoPlayer.isInitialized && exoPlayer.isPlaying) {
+                            Log.d(TAG, "Pausing local ExoPlayer")
+                            exoPlayer.pause()
+                        }
+                        // Load current station on Cast
+                        if (currentStation != null) {
+                            val station = currentStation!!
+                            val metadata = metadataService.getCurrentMetadata()
+                            Log.d(TAG, "Loading station on Cast: ${station.name}, metadata=${metadata?.title}")
+                            loadStationOnCast(station, metadata)
+                        } else {
+                            Log.w(TAG, "No current station to load on Cast!")
+                        }
+                        this@RadioService.listener?.onCastStateChanged(true)
+                    }
+
+                    override fun onCastSessionEnded() {
+                        Log.d(TAG, "Cast session ended - resuming local playback")
+                        // Resume local playback when casting ends
+                        if (isSessionActive && currentStation != null) {
+                            exoPlayer.play()
+                        }
+                        this@RadioService.listener?.onCastStateChanged(false)
+                    }
+                }
+            }
+            Log.d(TAG, "CastManager initialized successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize CastManager: ${e.message}", e)
+            castManager = null
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -382,6 +428,9 @@ class RadioService : MediaBrowserServiceCompat() {
 
         currentStation = station
 
+        // Store station in CastManager for later Cast session
+        castManager?.currentStation = station
+
         // Réinitialiser le temps de session et les données lors du changement de station
         sessionStartTime = 0L
         isSessionActive = false
@@ -415,6 +464,9 @@ class RadioService : MediaBrowserServiceCompat() {
                 // Mettre à jour la session média avec la pochette
                 currentArtwork = metadata.coverBitmap
                 updateMediaSessionMetadata(metadata.coverBitmap)
+
+                // Synchroniser les métadonnées vers Chromecast si actif
+                updateMetadataOnCast(metadata)
 
                 // Notifier l'activité
                 listener?.onTrackMetadataChanged(metadata)
@@ -459,6 +511,12 @@ class RadioService : MediaBrowserServiceCompat() {
         exoPlayer.setMediaSource(mediaSource)
         exoPlayer.prepare()
 
+        // If casting, load the new station on Chromecast
+        if (isCasting()) {
+            Log.d(TAG, "Currently casting, loading new station on Cast: ${station.name}")
+            loadStationOnCast(station, null)
+        }
+
         // Mettre à jour les métadonnées de la session média
         updateMediaSessionMetadata()
 
@@ -474,7 +532,14 @@ class RadioService : MediaBrowserServiceCompat() {
             sessionTimeUpdaterJob?.cancel()
             startSessionTimeUpdater()
         }
-        exoPlayer.play()
+
+        // Delegate to Cast if casting, otherwise play locally
+        if (isCasting()) {
+            castManager?.play()
+        } else {
+            exoPlayer.play()
+        }
+
         mediaSession.isActive = true
         updateMediaSessionState(true)
 
@@ -506,7 +571,13 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     fun pause() {
-        exoPlayer.pause()
+        // Delegate to Cast if casting, otherwise pause locally
+        if (isCasting()) {
+            castManager?.pause()
+        } else {
+            exoPlayer.pause()
+        }
+
         updateMediaSessionState(false)
         listener?.onPlaybackStateChanged(false)
         // Ne pas annuler le timer en pause, car la session continue
@@ -520,7 +591,13 @@ class RadioService : MediaBrowserServiceCompat() {
             statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
         }
 
+        // Arrêter le monitoring des métadonnées
+        metadataService.stopMonitoring()
+
+        // Stop both local and Cast playback
         exoPlayer.stop()
+        castManager?.stop()
+
         updateMediaSessionState(false)
 
         // Annuler le timer de session
@@ -534,6 +611,9 @@ class RadioService : MediaBrowserServiceCompat() {
         lastSavedBytes = 0L
         isForegroundServiceStarted = false
 
+        // Clear current station state so it can be re-selected
+        currentStation = null
+
         // Réinitialiser les variables de débit, IP et codec
         bitrateStartTime = 0L
         bitrateStartBytes = 0L
@@ -541,6 +621,7 @@ class RadioService : MediaBrowserServiceCompat() {
         ipVersion = "N/A"
         audioCodec = "N/A"
         currentTrackTitle = null
+        currentArtwork = null
 
         listener?.onPlaybackStateChanged(false)
         stopForeground(true)
@@ -652,8 +733,36 @@ class RadioService : MediaBrowserServiceCompat() {
         }
     }
 
+    fun setVolume(volume: Float) {
+        if (::exoPlayer.isInitialized) {
+            exoPlayer.volume = volume
+        }
+        // Pour le cast, on pourrait aussi ajuster le volume si nécessaire
+        castManager?.setVolume(volume.toDouble())
+    }
+
     fun isPlaying(): Boolean {
         return ::exoPlayer.isInitialized && exoPlayer.isPlaying
+    }
+
+    fun isCasting(): Boolean {
+        return castManager?.isCastSessionActive() == true
+    }
+
+    fun getCastManager(): CastManager? = castManager
+
+    fun getConnectedCastDeviceName(): String? {
+        return castManager?.getConnectedDeviceName()
+    }
+
+    private fun loadStationOnCast(station: RadioStation, metadata: TrackMetadata?) {
+        castManager?.loadStationOnCast(station, metadata)
+    }
+
+    private fun updateMetadataOnCast(metadata: TrackMetadata) {
+        if (isCasting()) {
+            castManager?.updateMetadataOnCast(metadata)
+        }
     }
 
     fun getCurrentStation(): RadioStation? = currentStation
@@ -1117,6 +1226,8 @@ class RadioService : MediaBrowserServiceCompat() {
         mediaSession.release()
         statsManager.cleanup()
         metadataService.cleanup()
+        castManager?.release()
+        castManager = null
         serviceScope.cancel()
         exoPlayer.release()
         stopForeground(true)
