@@ -28,6 +28,7 @@ class MetadataService {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var aiirWebSocket: WebSocket? = null
     private var lastAIIRConnectionTime = 0L  // Prevent duplicate AIIR connections
+    private var currentMetadata: TrackMetadata? = null  // Track current metadata for Cast sync
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
@@ -100,6 +101,7 @@ class MetadataService {
                 while (isActive) {
                     try {
                         val metadata = fetchRadioFranceMetadata(radioFranceId, stationId)
+                        currentMetadata = metadata
                         withContext(Dispatchers.Main) {
                             onMetadataUpdate?.invoke(metadata)
                         }
@@ -114,6 +116,7 @@ class MetadataService {
                 while (isActive) {
                     try {
                         val metadata = fetchBBCMetadata(bbcServiceId)
+                        currentMetadata = metadata
                         withContext(Dispatchers.Main) {
                             onMetadataUpdate?.invoke(metadata)
                         }
@@ -128,6 +131,7 @@ class MetadataService {
                 while (isActive) {
                     try {
                         val metadata = fetchWebMetadata(scrapingKey)
+                        currentMetadata = metadata
                         withContext(Dispatchers.Main) {
                             onMetadataUpdate?.invoke(metadata)
                         }
@@ -147,12 +151,15 @@ class MetadataService {
         metadataJob = null
         aiirWebSocket?.close(1000, "Stopping monitoring")
         aiirWebSocket = null
+        currentMetadata = null
     }
 
     fun cleanup() {
         stopMonitoring()
         scope.cancel()
     }
+
+    fun getCurrentMetadata(): TrackMetadata? = currentMetadata
 
     private suspend fun fetchRadioFranceMetadata(stationId: Int, userStationId: Int = -1): TrackMetadata? {
         return withContext(Dispatchers.IO) {
@@ -546,6 +553,7 @@ class MetadataService {
                     try {
                         val metadata = parseAIIRMetadata(text)
                         if (metadata != null) {
+                            currentMetadata = metadata
                             Log.d("MetadataService", "Successfully parsed AIIR metadata")
                             Log.d("MetadataService", "onMetadataUpdate callback is null? ${onMetadataUpdate == null}")
                             MainScope().launch {

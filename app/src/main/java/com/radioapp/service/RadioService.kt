@@ -52,6 +52,7 @@ import com.radioapp.model.RadioStation
 import com.radioapp.data.StatsManager
 import com.radioapp.data.MetadataService
 import com.radioapp.data.TrackMetadata
+import com.radioapp.cast.CastManager
 import kotlinx.coroutines.*
 
 class RadioService : MediaBrowserServiceCompat() {
@@ -110,6 +111,13 @@ class RadioService : MediaBrowserServiceCompat() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var sessionTimeUpdaterJob: Job? = null
 
+    // Secondary player for alarm pre-loading
+    private var alarmPlayer: ExoPlayer? = null
+    private var alarmStation: RadioStation? = null
+
+    // Chromecast support
+    private var castManager: CastManager? = null
+
     // TransferListener pour compter les octets transférés
     private val transferListener = object : TransferListener {
         override fun onTransferInitializing(source: DataSource, dataSpec: DataSpec, isNetwork: Boolean) {}
@@ -130,6 +138,7 @@ class RadioService : MediaBrowserServiceCompat() {
         fun onTrackMetadataChanged(metadata: TrackMetadata?)
         fun onIpVersionChanged(ipVersion: String)
         fun onSearchStatus(status: String)
+        fun onCastStateChanged(isCasting: Boolean)
     }
     
     private var listener: RadioServiceListener? = null
@@ -146,9 +155,50 @@ class RadioService : MediaBrowserServiceCompat() {
         createNotificationChannel()
         initializeMediaSession()
         initializePlayer()
+        initializeCastManager()
         // Set the session token for Android Auto
         sessionToken = mediaSession.sessionToken
         // Don't start foreground here - will be done in play() to avoid Android 12+ restrictions
+    }
+
+    private fun initializeCastManager() {
+        try {
+            castManager = CastManager(this).apply {
+                listener = object : CastManager.CastManagerListener {
+                    override fun onCastSessionStarted() {
+                        Log.d(TAG, "Cast session started - switching to remote playback, currentStation=${currentStation?.name}")
+                        // Pause local playback when casting starts
+                        if (::exoPlayer.isInitialized && exoPlayer.isPlaying) {
+                            Log.d(TAG, "Pausing local ExoPlayer")
+                            exoPlayer.pause()
+                        }
+                        // Load current station on Cast
+                        if (currentStation != null) {
+                            val station = currentStation!!
+                            val metadata = metadataService.getCurrentMetadata()
+                            Log.d(TAG, "Loading station on Cast: ${station.name}, metadata=${metadata?.title}")
+                            loadStationOnCast(station, metadata)
+                        } else {
+                            Log.w(TAG, "No current station to load on Cast!")
+                        }
+                        this@RadioService.listener?.onCastStateChanged(true)
+                    }
+
+                    override fun onCastSessionEnded() {
+                        Log.d(TAG, "Cast session ended - resuming local playback")
+                        // Resume local playback when casting ends
+                        if (isSessionActive && currentStation != null) {
+                            exoPlayer.play()
+                        }
+                        this@RadioService.listener?.onCastStateChanged(false)
+                    }
+                }
+            }
+            Log.d(TAG, "CastManager initialized successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize CastManager: ${e.message}", e)
+            castManager = null
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -382,6 +432,9 @@ class RadioService : MediaBrowserServiceCompat() {
 
         currentStation = station
 
+        // Store station in CastManager for later Cast session
+        castManager?.currentStation = station
+
         // Réinitialiser le temps de session et les données lors du changement de station
         sessionStartTime = 0L
         isSessionActive = false
@@ -415,6 +468,9 @@ class RadioService : MediaBrowserServiceCompat() {
                 // Mettre à jour la session média avec la pochette
                 currentArtwork = metadata.coverBitmap
                 updateMediaSessionMetadata(metadata.coverBitmap)
+
+                // Synchroniser les métadonnées vers Chromecast si actif
+                updateMetadataOnCast(metadata)
 
                 // Notifier l'activité
                 listener?.onTrackMetadataChanged(metadata)
@@ -459,6 +515,12 @@ class RadioService : MediaBrowserServiceCompat() {
         exoPlayer.setMediaSource(mediaSource)
         exoPlayer.prepare()
 
+        // If casting, load the new station on Chromecast
+        if (isCasting()) {
+            Log.d(TAG, "Currently casting, loading new station on Cast: ${station.name}")
+            loadStationOnCast(station, null)
+        }
+
         // Mettre à jour les métadonnées de la session média
         updateMediaSessionMetadata()
 
@@ -474,7 +536,14 @@ class RadioService : MediaBrowserServiceCompat() {
             sessionTimeUpdaterJob?.cancel()
             startSessionTimeUpdater()
         }
-        exoPlayer.play()
+
+        // Delegate to Cast if casting, otherwise play locally
+        if (isCasting()) {
+            castManager?.play()
+        } else {
+            exoPlayer.play()
+        }
+
         mediaSession.isActive = true
         updateMediaSessionState(true)
 
@@ -506,7 +575,13 @@ class RadioService : MediaBrowserServiceCompat() {
     }
 
     fun pause() {
-        exoPlayer.pause()
+        // Delegate to Cast if casting, otherwise pause locally
+        if (isCasting()) {
+            castManager?.pause()
+        } else {
+            exoPlayer.pause()
+        }
+
         updateMediaSessionState(false)
         listener?.onPlaybackStateChanged(false)
         // Ne pas annuler le timer en pause, car la session continue
@@ -520,7 +595,13 @@ class RadioService : MediaBrowserServiceCompat() {
             statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
         }
 
+        // Arrêter le monitoring des métadonnées
+        metadataService.stopMonitoring()
+
+        // Stop both local and Cast playback
         exoPlayer.stop()
+        castManager?.stop()
+
         updateMediaSessionState(false)
 
         // Annuler le timer de session
@@ -534,6 +615,9 @@ class RadioService : MediaBrowserServiceCompat() {
         lastSavedBytes = 0L
         isForegroundServiceStarted = false
 
+        // Clear current station state so it can be re-selected
+        currentStation = null
+
         // Réinitialiser les variables de débit, IP et codec
         bitrateStartTime = 0L
         bitrateStartBytes = 0L
@@ -541,6 +625,7 @@ class RadioService : MediaBrowserServiceCompat() {
         ipVersion = "N/A"
         audioCodec = "N/A"
         currentTrackTitle = null
+        currentArtwork = null
 
         listener?.onPlaybackStateChanged(false)
         stopForeground(true)
@@ -652,8 +737,191 @@ class RadioService : MediaBrowserServiceCompat() {
         }
     }
 
+    fun setVolume(volume: Float) {
+        if (::exoPlayer.isInitialized) {
+            exoPlayer.volume = volume
+        }
+        // Pour le cast, on pourrait aussi ajuster le volume si nécessaire
+        castManager?.setVolume(volume.toDouble())
+    }
+
+    /**
+     * Prépare l'alarme en arrière-plan (volume 0)
+     * Cela permet de démarrer le flux et passer la pub sans couper la station en cours
+     */
+    fun prepareAlarm(station: RadioStation) {
+        Log.d(TAG, "prepareAlarm: Préparation de ${station.name} en arrière-plan")
+        
+        // Si un player d'alarme existe déjà, le nettoyer
+        alarmPlayer?.release()
+        alarmPlayer = null
+        
+        alarmStation = station
+        
+        // Créer un nouveau player pour l'alarme
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(50000, 120000, 2500, 10000)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        // Configuration simplifiée pour le player secondaire (pas de focus audio auto car on est en background)
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .setUsage(C.USAGE_MEDIA)
+            .build()
+            
+        alarmPlayer = ExoPlayer.Builder(this)
+            .setLoadControl(loadControl)
+            .setAudioAttributes(audioAttributes, false) // false = pas de focus audio auto pour l'instant
+            .build()
+            
+        // Mettre le volume à 0 immédiatement
+        alarmPlayer?.volume = 0f
+        
+        // Préparer la source
+        val mediaItem = MediaItem.fromUri(station.url)
+        
+        // Utiliser la même détection IP que le player principal
+        val dataSourceFactory = com.radioapp.network.IpDetectingHttpDataSource.Factory(
+            userAgent = "RadioApp/1.0",
+            connectTimeoutMs = 20000,
+            readTimeoutMs = 20000,
+            allowCrossProtocolRedirects = true,
+            onIpVersionDetected = { /* Ignorer pour l'alarme silencieuse */ },
+            transferListener = transferListener
+        )
+
+        val mediaSource = if (station.url.contains(".m3u8")) {
+            HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+        } else {
+            ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+        }
+
+        alarmPlayer?.setMediaSource(mediaSource)
+        alarmPlayer?.prepare()
+        alarmPlayer?.play() // Jouer en silence
+        
+        Log.d(TAG, "prepareAlarm: Player démarré en silence")
+    }
+
+    /**
+     * Bascule sur l'alarme (promeut le player d'alarme en player principal)
+     */
+    fun switchToAlarm() {
+        Log.d(TAG, "switchToAlarm: Bascule vers l'alarme")
+        
+        if (alarmPlayer == null || alarmStation == null) {
+            Log.e(TAG, "switchToAlarm: Erreur - Alarme non préparée !")
+            return
+        }
+        
+        // 1. Sauvegarder les stats de la station précédente si nécessaire
+        if (currentStation != null && totalBytesReceived > lastSavedBytes) {
+            val unsavedBytes = totalBytesReceived - lastSavedBytes
+            statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
+        }
+        
+        // 2. Arrêter le player principal actuel
+        try {
+            exoPlayer.stop()
+            exoPlayer.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors de l'arrêt du player principal", e)
+        }
+        
+        // 3. Promouvoir le player d'alarme
+        exoPlayer = alarmPlayer!!
+        alarmPlayer = null
+        
+        // Mise à jour de la station courante
+        val newStation = alarmStation!!
+        currentStation = newStation
+        alarmStation = null
+        
+        // 4. Rétablir le son (unmute)
+        exoPlayer.volume = 1.0f
+        
+        // 5. Configurer les listeners sur le nouveau player principal
+        // Important : Réattacher le listener pour les événements futurs
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                when (playbackState) {
+                    Player.STATE_READY -> {
+                        listener?.onPlaybackStateChanged(true)
+                        updateNotification()
+                    }
+                    Player.STATE_BUFFERING -> listener?.onPlaybackStateChanged(false)
+                    Player.STATE_ENDED -> listener?.onPlaybackStateChanged(false)
+                }
+            }
+            override fun onPlayerError(error: com.google.android.exoplayer2.PlaybackException) {
+                listener?.onError("Playback error: ${error.message}")
+            }
+            override fun onMetadata(metadata: Metadata) {
+                // ... (Logique de métadonnées - simplifiée pour l'instant, sera réactivée après le switch)
+            }
+            override fun onTracksChanged(tracks: Tracks) {
+                detectAudioCodec(tracks)
+            }
+        })
+        
+        // Rétablir la gestion du focus audio
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .setUsage(C.USAGE_MEDIA)
+            .build()
+        exoPlayer.setAudioAttributes(audioAttributes, true)
+        
+        // 6. Mettre à jour tout l'état de l'application (comme dans loadStation)
+        
+        // Reset session stats for new station
+        sessionStartTime = System.currentTimeMillis() // Nouvelle session
+        isSessionActive = true
+        totalBytesReceived = 0L
+        lastSavedBytes = 0L
+        bitrateStartTime = 0L
+        bitrateStartBytes = 0L
+        averageBitrate = 0.0
+        currentArtwork = null
+        
+        // Arrêter monitoring précédent et relancer pour la nouvelle station
+        metadataService.stopMonitoring()
+        
+        // Notifier l'UI du changement de station
+        listener?.onPlaybackStateChanged(true)
+        
+        // Mettre à jour notification et widget
+        updateMediaSessionMetadata()
+        updateNotification()
+        
+        // Restart stats tracking
+        statsManager.startListening(newStation.id)
+        
+        Log.d(TAG, "switchToAlarm: Bascule terminée avec succès")
+    }
+
     fun isPlaying(): Boolean {
         return ::exoPlayer.isInitialized && exoPlayer.isPlaying
+    }
+
+    fun isCasting(): Boolean {
+        return castManager?.isCastSessionActive() == true
+    }
+
+    fun getCastManager(): CastManager? = castManager
+
+    fun getConnectedCastDeviceName(): String? {
+        return castManager?.getConnectedDeviceName()
+    }
+
+    private fun loadStationOnCast(station: RadioStation, metadata: TrackMetadata?) {
+        castManager?.loadStationOnCast(station, metadata)
+    }
+
+    private fun updateMetadataOnCast(metadata: TrackMetadata) {
+        if (isCasting()) {
+            castManager?.updateMetadataOnCast(metadata)
+        }
     }
 
     fun getCurrentStation(): RadioStation? = currentStation
@@ -1117,6 +1385,8 @@ class RadioService : MediaBrowserServiceCompat() {
         mediaSession.release()
         statsManager.cleanup()
         metadataService.cleanup()
+        castManager?.release()
+        castManager = null
         serviceScope.cancel()
         exoPlayer.release()
         stopForeground(true)

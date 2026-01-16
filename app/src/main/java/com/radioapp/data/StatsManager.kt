@@ -23,8 +23,8 @@ class StatsManager private constructor(context: Context) {
     }
 
     fun startListening(stationId: Int) {
-        if (currentStationId != stationId) {
-            // Nouvelle station, incrémenter le compteur
+        if (currentStationId != stationId || !isPlaying) {
+            // Nouvelle station ou reprise, incrémenter le compteur
             incrementPlayCount(stationId)
         }
 

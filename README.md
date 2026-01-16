@@ -1,8 +1,14 @@
 # RadioApp 📻
 
-Application Android de streaming radio avec 36 stations internationales, **support Android Auto**, statistiques d'écoute détaillées et widget.
+Application Android de streaming radio avec 36 stations internationales, **support Android Auto**, statistiques d'écoute détaillées, widget et **fonctions de réveil avancées**.
 
 ## 📱 Fonctionnalités
+
+### ⏰ Réveil Intelligent (Nouveau)
+- **Réveil France Culture** : Une fonction exclusive pour se réveiller avec France Culture.
+- **Silence Pub** : Le réveil se déclenche **1 minute avant** l'heure prévue en mode "Mute" pour laisser passer les publicités de pré-roll, puis rétablit le son à l'heure exacte.
+- **Fiabilité** : Le système de réveil est robuste et vérifie l'heure sur une fenêtre de 10 secondes pour ne jamais manquer le réveil.
+- **Persistance** : L'heure et l'état du réveil sont sauvegardés et restaurés même si l'application est redémarrée.
 
 ### 🚗 Android Auto
 - **Intégration native complète** : l'application apparaît automatiquement dans Android Auto
@@ -10,7 +16,7 @@ Application Android de streaming radio avec 36 stations internationales, **suppo
 - **Tri intelligent** : les stations sont classées par ordre d'utilisation
 - **Contrôle complet** : lecture, pause, stop et changement de station en toute sécurité
 - **Métadonnées en temps réel** : titre du morceau et logo de la station affichés
-- **Gestion audio automatique** : focus audio géré intelligemment (pas besoin de lancer Spotify d'abord !)
+- **Gestion audio automatique** : focus audio géré intelligemment
 - **Action personnalisée** : bouton "Passer pub" accessible depuis l'interface Android Auto
 
 ### 🎵 Stations de Radio (36)
@@ -57,44 +63,34 @@ France Inter • Miles Davis - So What
 🌐 Connexion: IPv4
 ```
 
-**Bouton Spotify :**
-- Apparaît automatiquement quand un titre de morceau est détecté
-- Remplace le bouton "Passer pub"
-- Lance une recherche Spotify avec le titre du morceau
-- Fonctionne même si Spotify n'est pas installé (ouvre le navigateur)
+### 📺 Google Cast
+- Diffusion sur Chromecast et appareils compatibles Google Cast
+- Contrôle du volume à distance (supporté même pour le réveil)
+- Affichage des métadonnées et pochettes sur la TV
 
-### 🎛️ Contrôles Média
-- **MediaSession** intégrée pour contrôles système
-- **Android Auto** : interface native en voiture
-- Contrôles sur écran verrouillé
-- Support centre de contrôle Android
-- Boutons physiques du téléphone
-- Casques et écouteurs Bluetooth
-- **Focus audio automatique** : lecture sans conflit avec d'autres applications
+## 🎯 Utilisation du Réveil France Culture
 
-### 📱 Widget Android
-- Affiche 4 stations en accès rapide
-- Station en cours toujours visible en premier
-- 3 stations les plus écoutées
-- Lancement direct depuis l'écran d'accueil
-- Mise à jour automatique
+Le réveil est une fonctionnalité spéciale attachée à la station **France Culture** (mais le principe pourra être étendu).
 
-### ⚡ Optimisations
-- **Cache des logos** : évite le décodage répété des images
-- **Mise à jour partielle** : RecyclerView optimisé avec payloads
-- **Sauvegarde intelligente** : données écrites toutes les 10s
-- **Gestion mémoire** : cleanup automatique des ressources
+1.  **Activer le Réveil** :
+    -   Effectuez un **appui long** sur la case de la station **France Culture**.
+    -   Une petite horloge apparaît sur la case, indiquant l'heure du réveil (par défaut 06:30).
+    -   Un message "Réveil France Culture activé" confirme l'action.
 
-## 🛠️ Technologies
+2.  **Régler l'Heure** :
+    -   Cliquez directement sur la **petite horloge** affichée sur la case France Culture.
+    -   Une boîte de dialogue s'ouvre pour entrer la nouvelle heure (format HH:mm).
+    -   Validez pour sauvegarder.
 
-- **Langage** : Kotlin
-- **Audio** : ExoPlayer 2.19.1 avec gestion automatique du focus audio
-- **Architecture** : Service en foreground + MediaSession + MediaBrowserService
-- **Android Auto** : Support natif via MediaBrowserServiceCompat
-- **Streaming** : Support Icecast/Shoutcast, HLS, MP3
-- **Stockage** : SharedPreferences pour les statistiques
-- **Minimum SDK** : API 24 (Android 7.0)
-- **Target SDK** : API 34 (Android 14)
+3.  **Fonctionnement** :
+    -   Laissez l'application ouverte (au premier plan ou en arrière-plan).
+    -   À **Heure - 1 minute** (ex: 06:29 si réglé à 06:30) :
+        -   L'application coupe le volume (mode silencieux).
+        -   Elle lance le flux de France Culture.
+        -   Cela permet de "manger" la publicité de pré-roll en silence.
+    -   À **l'Heure exacte** (ex: 06:30) :
+        -   Le volume est rétabli progressivement.
+        -   Vous entendez le début de l'émission pile à l'heure !
 
 ## 📦 Installation
 
@@ -125,6 +121,9 @@ app/src/main/
 │   ├── MainActivity.kt                 # Activité principale
 │   ├── adapter/
 │   │   └── RadioStationAdapter.kt     # Adapter RecyclerView optimisé
+│   ├── cast/
+│   │   ├── CastManager.kt             # Gestion Google Cast
+│   │   └── CastOptionsProvider.kt     # Options Cast
 │   ├── data/
 │   │   ├── StatsManager.kt            # Gestion des statistiques
 │   │   └── MetadataService.kt         # Métadonnées ICY
@@ -136,158 +135,51 @@ app/src/main/
 │       └── RadioWidgetProvider.kt     # Widget Android
 ├── res/
 │   ├── drawable/                      # Logos des stations (36)
-│   ├── layout/
-│   │   ├── activity_main.xml          # Layout principal
-│   │   ├── item_radio_station.xml     # Item de station
-│   │   └── widget_layout.xml          # Layout du widget
-│   └── xml/
-│       └── radio_widget_info.xml      # Configuration widget
+│   ├── layout/                        # Layouts XML
+│   └── xml/                           # Configurations
 └── AndroidManifest.xml
-```
-
-## 🎯 Utilisation
-
-### 🚗 Dans Android Auto
-1. Connecter votre téléphone à Android Auto
-2. L'application "RadioApp" apparaît automatiquement dans la section Média
-3. Parcourir les 36 stations triées par fréquence d'utilisation
-4. Sélectionner une station pour lancer la lecture
-5. Contrôler la lecture avec les boutons Play/Pause/Stop
-6. Utiliser l'action "Passer pub" pour sauter les publicités
-7. Les métadonnées (titre du morceau) s'affichent en temps réel
-
-### 📱 Lecture sur téléphone
-1. Lancer l'application
-2. Sélectionner une station dans la liste
-3. La lecture démarre automatiquement
-4. Les statistiques sont mises à jour en temps réel
-
-### Notification
-- **Réduire** : Voir les infos compactes (station + titre du morceau si disponible)
-- **Déplier** : Voir tous les détails techniques
-- **Play/Pause** : Contrôler la lecture
-- **Stop** : Arrêter et fermer le service
-- **Passer pub** : Fast-forward de 2 secondes (à 8x la vitesse) - disponible si pas de métadonnées
-- **Spotify** : Rechercher le titre dans Spotify - disponible quand un morceau est détecté
-
-### Widget
-1. Appui long sur l'écran d'accueil
-2. Sélectionner "Widgets"
-3. Glisser le widget "RadioApp" sur l'écran
-4. Les stations s'affichent automatiquement
-
-### Statistiques
-- **Application** : Les stations sont triées par nombre d'utilisations, puis par durée d'écoute
-- **Widget** : La station en cours de lecture apparaît toujours en première position
-- Les statistiques sont **sauvegardées automatiquement** toutes les 10 secondes
-- Indicateur visuel coloré pour la station en cours (IPv4=jaune, IPv6=violet clair)
-
-## 🔧 Configuration
-
-### Ajouter une nouvelle station
-
-Dans `MainActivity.kt`, ajouter dans la liste `radioStations` :
-
-```kotlin
-RadioStation(
-    id = 34,  // ID suivant
-    name = "Nom de la Station",
-    url = "https://stream.url.com/radio.mp3",
-    genre = "Genre",
-    logoResId = R.drawable.logo_ma_station
-)
-```
-
-Puis :
-1. Ajouter le logo correspondant dans `res/drawable/`
-2. Mettre à jour le mapping dans `RadioWidgetProvider.kt` (variable `stationLogos`)
-
-```kotlin
-// Dans RadioWidgetProvider.kt
-private val stationLogos = mapOf(
-    // ... stations existantes ...
-    34 to R.drawable.logo_ma_station
-)
 ```
 
 ## 🐛 Résolution de problèmes
 
-### La notification ne s'affiche pas
-- Vérifier les autorisations de notification dans les paramètres Android
-- Désinstaller complètement l'app et réinstaller (pour réinitialiser le canal de notification)
+### L'alarme ne se déclenche pas
+- Assurez-vous que l'application n'est pas "tuée" par les économiseurs de batterie de votre téléphone.
+- L'application doit être au moins en arrière-plan (ou minimisée), si vous la forcez à s'arrêter complètement via les paramètres, l'alarme ne pourra pas se lancer.
 
-### Pas de son
-- ✅ **Corrigé** : Le focus audio est maintenant géré automatiquement par ExoPlayer
-- Vérifier le volume média (pas le volume sonnerie)
-- Vérifier que l'URL du flux est accessible
-- Certains flux nécessitent une connexion stable
-
-### L'app n'apparaît pas dans Android Auto
-- Vérifier que l'app est bien installée sur le téléphone
-- Redémarrer Android Auto
-- Vérifier la connexion USB/Bluetooth avec la voiture
-- La meta-data Android Auto est déclarée au niveau application dans le manifest
-
-### Crash au démarrage (Android 12+)
-- Le code gère déjà le `ForegroundServiceStartNotAllowedException`
-- Vérifier les permissions `FOREGROUND_SERVICE` et `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
-
-### Widget ne se met pas à jour
-- Le widget utilise des broadcasts pour les mises à jour
-- Redémarrer le téléphone si nécessaire
+### Bouton Stop
+- Le bouton Stop arrête désormais complètement la lecture, vide le cache et permet de relancer immédiatement la même station (ce qui n'était pas possible avant la v1.3).
 
 ## 📝 Notes Techniques
 
 ### Gestion du débit
-Le débit affiché est le **débit moyen** depuis le début de la session, pas le débit instantané. Cela donne une mesure plus stable et représentative.
-
-### Détection du codec
-Le codec est détecté via `ExoPlayer.onTracksChanged()`. Si "N/A" est affiché, cela signifie que le flux n'a pas encore fourni les informations de format.
+Le débit affiché est le **débit moyen** depuis le début de la session, pas le débit instantané.
 
 ### IPv4 vs IPv6
-La détection se fait en résolvant le DNS du hostname. La première adresse retournée est considérée comme celle utilisée par la connexion.
 - **IPv4** : Fond jaune (#FFFFEB3B)
-- **IPv6** : Fond violet clair (#FFD090E0) - éclairci pour meilleure visibilité
-
-### Métadonnées et Spotify
-- Les métadonnées ICY sont récupérées automatiquement pour les flux qui les supportent
-- Les radios **Radio France** et **BBC** ont des API dédiées pour les métadonnées détaillées avec pochettes
-- Le bouton Spotify recherche le titre exact tel que diffusé par la station
-- Si Spotify n'est pas installé, la recherche s'ouvre dans le navigateur web
-
-### Fast-forward (Passer pub)
-Le bouton "Passer pub" accélère la lecture à 8x pendant 2 secondes, permettant de sauter environ 16 secondes de contenu.
+- **IPv6** : Fond violet clair (#FFD090E0)
 
 ## 🙏 Crédits
-
 - **Logos** : Propriété de leurs stations respectives
 - **ExoPlayer** : Google / Android Open Source Project
 - **Icônes** : Material Design Icons
 
 ## 📄 Licence
-
-Ce projet a été créé à des fins éducatives et personnelles. Les logos et noms de stations appartiennent à leurs propriétaires respectifs.
-
-## 🤖 Développement
-
-Application développée avec l'assistance de **Claude Code** (Anthropic).
+Ce projet a été créé à des fins éducatives et personnelles.
 
 ---
 
-**Version actuelle** : 1.2
-**Dernière mise à jour** : Novembre 2024
+**Version actuelle** : 1.3
+**Dernière mise à jour** : Janvier 2026
 
-### 🆕 Nouveautés version 1.2
-- ✅ **Support Android Auto complet** : navigation native dans votre voiture
-- ✅ **Gestion automatique du focus audio** : plus besoin de lancer Spotify en premier
-- ✅ Recherche iTunes pour les pochettes des métadonnées ICY
-- ✅ Affichage de la date de compilation dans l'interface
-- ✅ Bouton "Passer pub" accessible depuis Android Auto
+### 🆕 Nouveautés version 1.3
+- ✅ **Réveil France Culture** : Fonctionnalité d'alarme avec saut de publicité
+- ✅ **Persistance** : Sauvegarde des heures de réveil et de l'état activé/désactivé
+- ✅ **Bouton Stop amélioré** : Réinitialisation complète de l'état pour une meilleure ergonomie
+- ✅ **Google Cast** : Contrôle du volume amélioré
+- ✅ **Fiabilité** : Corrections de bugs mineurs sur la liste des stations
 
-### Nouveautés version 1.1
-- ✅ Ajout de 11 nouvelles stations (total: 33)
-- ✅ Bouton Spotify dans la notification
-- ✅ Affichage du titre du morceau dans la notification
-- ✅ Couleur IPv6 éclaircie pour meilleure visibilité
-- ✅ Tri optimisé par playCount puis listeningTime
-- ✅ Widget mis à jour avec toutes les stations
+### Nouveautés version 1.2
+- ✅ **Support Android Auto complet**
+- ✅ **Gestion automatique du focus audio**
+- ✅ Recherche iTunes pour les pochettes
+- ✅ Bouton "Passer pub" accessible

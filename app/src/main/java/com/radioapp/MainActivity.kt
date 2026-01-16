@@ -21,6 +21,8 @@ import com.radioapp.service.RadioService
 import com.radioapp.data.StatsManager
 import com.radioapp.data.TrackMetadata
 import com.radioapp.widget.RadioWidgetProvider
+import com.google.android.gms.cast.framework.CastButtonFactory
+import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
@@ -81,6 +83,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     private var currentStation: RadioStation? = null  // Track current station to ignore ICY for AIIR stations
     private var currentProgramUrl: String? = null  // URL du programme (Radio France)
     private val metadataService = com.radioapp.data.MetadataService()
+    private var castContext: CastContext? = null  // Google Cast context
     private var isFranceCultureAlarmSet = false
     private var alarmHour = 6
     private var alarmMinute = 30
@@ -107,14 +110,25 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         }
     }
 
+    private var lastAlarmTriggerDay = -1 // Pour éviter les déclenchements multiples le même jour
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
+            // Charger les préférences de l'alarme
+            val prefs = getSharedPreferences("RadioAppPrefs", android.content.Context.MODE_PRIVATE)
+            isFranceCultureAlarmSet = prefs.getBoolean("ALARM_ENABLED", false)
+            alarmHour = prefs.getInt("ALARM_HOUR", 6)
+            alarmMinute = prefs.getInt("ALARM_MINUTE", 30)
+
             // Demander la permission de notification pour Android 13+
             requestNotificationPermission()
+
+            // Initialize Google Cast context
+            initializeCastContext()
 
             statsManager = StatsManager.getInstance(this)
             setupRecyclerView()
@@ -131,6 +145,166 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             e.printStackTrace()
             Toast.makeText(this, "Erreur lors de l'initialisation: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    // ... (rest of the file)
+
+    private fun saveAlarmPrefs() {
+        val prefs = getSharedPreferences("RadioAppPrefs", android.content.Context.MODE_PRIVATE)
+        with(prefs.edit()) {
+            putBoolean("ALARM_ENABLED", isFranceCultureAlarmSet)
+            putInt("ALARM_HOUR", alarmHour)
+            putInt("ALARM_MINUTE", alarmMinute)
+            apply()
+        }
+    }
+
+    private fun setupRecyclerView() {
+        // Trier les stations par utilisation dès le démarrage
+        val sortedStations = radioStations.sortedByDescending { station ->
+            statsManager.getPlayCount(station.id)
+        }
+
+        adapter = RadioStationAdapter(sortedStations, statsManager, { station ->
+            selectStation(station)
+        }, { isSet ->
+            isFranceCultureAlarmSet = isSet
+            saveAlarmPrefs() // Sauvegarder l'état
+            if (isSet) {
+                val timeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
+                Toast.makeText(this, "Réveil France Culture activé pour $timeStr", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Réveil désactivé", Toast.LENGTH_SHORT).show()
+            }
+        }, {
+            showTimeEditDialog()
+        })
+        
+        // Initialiser l'adapter avec les valeurs restaurées
+        adapter.isAlarmSet = isFranceCultureAlarmSet
+        adapter.alarmTimeText = String.format("%02d:%02d", alarmHour, alarmMinute)
+        
+        binding.rvRadioStations.apply {
+            layoutManager = GridLayoutManager(this@MainActivity, 2)
+            this.adapter = this@MainActivity.adapter
+        }
+    }
+
+    // ... (rest of the file)
+    
+    private fun startStatsUpdateTimer() {
+        scope.launch {
+            while (isActive) {
+                adapter.updateStats()
+                updateTotalStats()
+                
+                // Vérifier l'heure pour le réveil France Culture
+                if (isFranceCultureAlarmSet) {
+                    val now = java.time.LocalTime.now()
+                    val today = java.time.LocalDate.now().dayOfYear
+                    
+                    val targetTime = java.time.LocalTime.of(alarmHour, alarmMinute)
+                    // Démarrer 1 minute avant pour manger la pub
+                    val preStartTime = targetTime.minusMinutes(1)
+
+                    // Vérification robuste : fenêtre de 10 secondes et vérification du jour
+                    if (today != lastAlarmTriggerDay) {
+                         // 1. Préchargement à H-1 minute
+                        if (now.hour == preStartTime.hour && 
+                            now.minute == preStartTime.minute && 
+                            now.second < 10) {
+                            
+                            // On marque pas encore le jour comme traité car on doit attendre la minute suivante
+                            // Mais on utilise un flag local ou on vérifie si l'alarme est déjà en prépa ?
+                            // Simplification : on le fait une fois par jour grâce au check 'today'
+                            // ATTENTION: si on marque today ici, le check suivant (H pile) ne passera pas
+                            // Solution : utiliser un état intermédiaire ou juste checker l'heure
+                            
+                            val currentStationId = radioService?.getCurrentStation()?.id
+                            if (currentStationId != 2) {
+                                val franceCulture = radioStations.find { it.id == 2 }
+                                if (franceCulture != null) {
+                                     // Pour éviter de spammer prepareAlarm pendant les 10s, on pourrait ajouter un flag
+                                     // Mais prepareAlarm gère déjà le nettoyage
+                                     withContext(Dispatchers.Main) {
+                                         // On ne coupe PAS le son ici !
+                                         Toast.makeText(this@MainActivity, "Préparation du réveil (silence pub)...", Toast.LENGTH_LONG).show()
+                                         radioService?.prepareAlarm(franceCulture)
+                                     }
+                                     delay(11000) // Attendre pour sortir de la fenêtre de 10s
+                                }
+                            }
+                        }
+                        
+                        // 2. Bascule à H pile
+                        if (now.hour == targetTime.hour && 
+                            now.minute == targetTime.minute && 
+                            now.second < 10) {
+                            
+                            lastAlarmTriggerDay = today
+                            
+                            val currentStationId = radioService?.getCurrentStation()?.id
+                            if (currentStationId != 2) {
+                                withContext(Dispatchers.Main) {
+                                    radioService?.switchToAlarm()
+                                    Toast.makeText(this@MainActivity, "Réveil ! (Son rétabli)", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                delay(1000) // 1 seconde
+
+                // Mettre à jour le widget avec la station en cours
+                val currentStationId = radioService?.getCurrentStation()?.id
+                RadioWidgetProvider.updateWidget(this@MainActivity, currentStationId)
+            }
+        }
+    }
+    
+    // ...
+
+    private fun showTimeEditDialog() {
+        val input = android.widget.EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_DATETIME or android.text.InputType.TYPE_DATETIME_VARIATION_TIME
+        input.hint = "HH:mm"
+        input.setText(String.format("%02d:%02d", alarmHour, alarmMinute))
+        input.gravity = android.view.Gravity.CENTER
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Régler l'heure du réveil")
+            .setView(input)
+            .setPositiveButton("OK") { _, _ ->
+                val timeStr = input.text.toString()
+                try {
+                    val parts = timeStr.split(":")
+                    if (parts.size == 2) {
+                        val h = parts[0].toInt()
+                        val m = parts[1].toInt()
+                        
+                        if (h in 0..23 && m in 0..59) {
+                            alarmHour = h
+                            alarmMinute = m
+                            saveAlarmPrefs() // Sauvegarder la nouvelle heure
+                            
+                            val newTimeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
+                            adapter.alarmTimeText = newTimeStr
+                            adapter.notifyDataSetChanged() // Refresh to update clock text
+                            
+                            Toast.makeText(this, "Réveil réglé sur $newTimeStr", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Heure invalide (00:00 - 23:59)", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(this, "Format invalide. Utilisez HH:mm", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Erreur de format", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -215,31 +389,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         }
     }
 
-    private fun setupRecyclerView() {
-        // Trier les stations par utilisation dès le démarrage
-        val sortedStations = radioStations.sortedByDescending { station ->
-            statsManager.getPlayCount(station.id)
-        }
 
-        adapter = RadioStationAdapter(sortedStations, statsManager, { station ->
-            selectStation(station)
-        }, { isSet ->
-            isFranceCultureAlarmSet = isSet
-            if (isSet) {
-                val timeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
-                Toast.makeText(this, "Réveil France Culture activé pour $timeStr", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Réveil désactivé", Toast.LENGTH_SHORT).show()
-            }
-        }, {
-            showTimeEditDialog()
-        })
-        
-        binding.rvRadioStations.apply {
-            layoutManager = GridLayoutManager(this@MainActivity, 2)
-            this.adapter = this@MainActivity.adapter
-        }
-    }
 
     private fun setupControls() {
         binding.btnPlay.setOnClickListener {
@@ -261,6 +411,11 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             radioService?.stop()
             statsManager.stopListening()
             adapter.setCurrentPlayingStation(null)
+
+            // Réinitialiser l'état local
+            currentStation = null
+            currentProgramUrl = null
+            binding.tvProgramName.visibility = android.view.View.GONE
 
             // Réinitialiser les métadonnées et cacher la pochette
             metadataResetJob?.cancel()
@@ -305,6 +460,19 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             } else {
                 android.util.Log.e("MainActivity", "Programme URL is empty!")
             }
+        }
+    }
+
+    private fun initializeCastContext() {
+        // Initialize Google Cast context and setup the Cast button
+        try {
+            castContext = CastContext.getSharedInstance(this)
+            // Setup the MediaRouteButton for Cast device discovery
+            CastButtonFactory.setUpMediaRouteButton(applicationContext, binding.mediaRouteButton)
+            android.util.Log.d("MainActivity", "CastContext initialized successfully")
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error initializing CastContext: ${e.message}", e)
+            // Cast might not be available on this device (no Google Play Services)
         }
     }
 
@@ -460,6 +628,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                 val isPlaying = service.isPlaying()
                 binding.btnPlay.isEnabled = !isPlaying
                 binding.btnPause.isEnabled = isPlaying
+                binding.btnPause.alpha = if (isPlaying) 1.0f else 0.3f
                 binding.btnStop.isEnabled = isPlaying
 
                 service.getCurrentStation()?.let { station ->
@@ -488,6 +657,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         runOnUiThread {
             binding.btnPlay.isEnabled = !isPlaying
             binding.btnPause.isEnabled = isPlaying
+            binding.btnPause.alpha = if (isPlaying) 1.0f else 0.3f
             binding.btnStop.isEnabled = isPlaying || radioService?.getCurrentStation() != null
             binding.btnSkipBuffer.isEnabled = isPlaying
         }
@@ -504,6 +674,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             binding.btnPlay.isEnabled = true
             binding.btnPause.isEnabled = false
+            binding.btnPause.alpha = 0.3f
         }
     }
 
@@ -616,37 +787,21 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         }
     }
 
-    private fun startStatsUpdateTimer() {
-        scope.launch {
-            while (isActive) {
-                adapter.updateStats()
-                updateTotalStats()
-                
-                // Vérifier l'heure pour le réveil France Culture (06:30:00)
-                if (isFranceCultureAlarmSet) {
-                    val now = java.time.LocalTime.now()
-                    if (now.hour == alarmHour && now.minute == alarmMinute && now.second == 0) {
-                        // Si une station est en cours de lecture et que ce n'est pas déjà France Culture
-                        if (radioService?.isPlaying() == true && radioService?.getCurrentStation()?.id != 2) {
-                            val currentStation = radioStations.find { it.id == 2 }
-                            if (currentStation != null) {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(this@MainActivity, "Réveil : Lancement de France Culture", Toast.LENGTH_LONG).show()
-                                    selectStation(currentStation)
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                delay(1000) // 1 seconde
-
-                // Mettre à jour le widget avec la station en cours
-                val currentStationId = radioService?.getCurrentStation()?.id
-                RadioWidgetProvider.updateWidget(this@MainActivity, currentStationId)
+    override fun onCastStateChanged(isCasting: Boolean) {
+        runOnUiThread {
+            if (isCasting) {
+                val deviceName = radioService?.getConnectedCastDeviceName() ?: "Chromecast"
+                binding.tvCastingStatus.text = "Diffusion sur $deviceName"
+                binding.tvCastingStatus.visibility = android.view.View.VISIBLE
+                android.util.Log.d("MainActivity", "Cast started on: $deviceName")
+            } else {
+                binding.tvCastingStatus.visibility = android.view.View.GONE
+                android.util.Log.d("MainActivity", "Cast ended")
             }
         }
     }
+
+
 
     private fun updateTotalStats() {
         // Calculer le nombre total de plays, le temps total d'écoute et les données consommées
@@ -685,46 +840,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         }
     }
 
-    private fun showTimeEditDialog() {
-        val input = android.widget.EditText(this)
-        input.inputType = android.text.InputType.TYPE_CLASS_DATETIME or android.text.InputType.TYPE_DATETIME_VARIATION_TIME
-        input.hint = "HH:mm"
-        input.setText(String.format("%02d:%02d", alarmHour, alarmMinute))
-        input.gravity = android.view.Gravity.CENTER
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Régler l'heure du réveil")
-            .setView(input)
-            .setPositiveButton("OK") { _, _ ->
-                val timeStr = input.text.toString()
-                try {
-                    val parts = timeStr.split(":")
-                    if (parts.size == 2) {
-                        val h = parts[0].toInt()
-                        val m = parts[1].toInt()
-                        
-                        if (h in 0..23 && m in 0..59) {
-                            alarmHour = h
-                            alarmMinute = m
-                            
-                            val newTimeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
-                            adapter.alarmTimeText = newTimeStr
-                            adapter.notifyDataSetChanged() // Refresh to update clock text
-                            
-                            Toast.makeText(this, "Réveil réglé sur $newTimeStr", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(this, "Heure invalide (00:00 - 23:59)", Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        Toast.makeText(this, "Format invalide. Utilisez HH:mm", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Erreur de format", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Annuler", null)
-            .show()
-    }
 
     override fun onDestroy() {
         super.onDestroy()
