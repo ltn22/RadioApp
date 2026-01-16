@@ -208,36 +208,46 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                     val preStartTime = targetTime.minusMinutes(1)
 
                     // Vérification robuste : fenêtre de 10 secondes et vérification du jour
-                    if (today != lastAlarmTriggerDay && 
-                        now.hour == preStartTime.hour && 
-                        now.minute == preStartTime.minute && 
-                        now.second < 10) {
+                    if (today != lastAlarmTriggerDay) {
+                         // 1. Préchargement à H-1 minute
+                        if (now.hour == preStartTime.hour && 
+                            now.minute == preStartTime.minute && 
+                            now.second < 10) {
+                            
+                            // On marque pas encore le jour comme traité car on doit attendre la minute suivante
+                            // Mais on utilise un flag local ou on vérifie si l'alarme est déjà en prépa ?
+                            // Simplification : on le fait une fois par jour grâce au check 'today'
+                            // ATTENTION: si on marque today ici, le check suivant (H pile) ne passera pas
+                            // Solution : utiliser un état intermédiaire ou juste checker l'heure
+                            
+                            val currentStationId = radioService?.getCurrentStation()?.id
+                            if (currentStationId != 2) {
+                                val franceCulture = radioStations.find { it.id == 2 }
+                                if (franceCulture != null) {
+                                     // Pour éviter de spammer prepareAlarm pendant les 10s, on pourrait ajouter un flag
+                                     // Mais prepareAlarm gère déjà le nettoyage
+                                     withContext(Dispatchers.Main) {
+                                         // On ne coupe PAS le son ici !
+                                         Toast.makeText(this@MainActivity, "Préparation du réveil (silence pub)...", Toast.LENGTH_LONG).show()
+                                         radioService?.prepareAlarm(franceCulture)
+                                     }
+                                     delay(11000) // Attendre pour sortir de la fenêtre de 10s
+                                }
+                            }
+                        }
                         
-                        // Marquer comme déclenché pour aujourd'hui
-                        lastAlarmTriggerDay = today
-                        
-                        // Si une station est en cours de lecture et que ce n'est pas déjà France Culture
-                        // OU si rien n'est en lecture
-                        val currentStationId = radioService?.getCurrentStation()?.id
-                        if (currentStationId != 2) {
-                            val franceCulture = radioStations.find { it.id == 2 }
-                            if (franceCulture != null) {
+                        // 2. Bascule à H pile
+                        if (now.hour == targetTime.hour && 
+                            now.minute == targetTime.minute && 
+                            now.second < 10) {
+                            
+                            lastAlarmTriggerDay = today
+                            
+                            val currentStationId = radioService?.getCurrentStation()?.id
+                            if (currentStationId != 2) {
                                 withContext(Dispatchers.Main) {
-                                    Toast.makeText(this@MainActivity, "Préchargement du réveil (silence pub)...", Toast.LENGTH_LONG).show()
-                                    // 1. Couper le son
-                                    radioService?.setVolume(0f)
-                                    
-                                    // 2. Lancer la station
-                                    selectStation(franceCulture)
-                                    
-                                    // 3. Programmer le rétablissement du son dans 1 minute
-                                    scope.launch {
-                                        delay(60000) // Attendre 1 minute
-                                        withContext(Dispatchers.Main) {
-                                            radioService?.setVolume(1.0f)
-                                            Toast.makeText(this@MainActivity, "Réveil ! (Son rétabli)", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
+                                    radioService?.switchToAlarm()
+                                    Toast.makeText(this@MainActivity, "Réveil ! (Son rétabli)", Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
