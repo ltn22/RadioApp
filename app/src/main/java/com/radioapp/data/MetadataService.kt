@@ -61,6 +61,11 @@ class MetadataService {
         15 to "bide"  // Bide et Musique - via radio-info.php
     )
 
+    // Stations qui utilisent l'API MyRadio24
+    private val myRadio24Stations = mapOf(
+        18 to "unicorn"  // Pink Unicorn Radio
+    )
+
     // Stations qui utilisent la websocket AIIR
     // serviceId to originUrl mapping for AIIR services
     private val aiirStations = mapOf(
@@ -86,10 +91,11 @@ class MetadataService {
         val radioFranceId = radioFranceStations[stationId]
         val bbcServiceId = bbcStations[stationId]
         val scrapingKey = webScrapingStations[stationId]
+        val myRadio24User = myRadio24Stations[stationId]
         val aiirServiceId = aiirStations[stationId]
         val isLiveOnly = liveOnlyStations.contains(stationId)
 
-        Log.d("MetadataService", "Station checks: radioFrance=$radioFranceId, bbc=$bbcServiceId, scraping=$scrapingKey, aiir=$aiirServiceId, liveOnly=$isLiveOnly")
+        Log.d("MetadataService", "Station checks: radioFrance=$radioFranceId, bbc=$bbcServiceId, scraping=$scrapingKey, myRadio24=$myRadio24User, aiir=$aiirServiceId, liveOnly=$isLiveOnly")
 
         if (isLiveOnly) {
             // Pour les stations en direct sans métadonnées officielles
@@ -139,6 +145,21 @@ class MetadataService {
                         e.printStackTrace()
                     }
                     delay(20000) // Vérifier toutes les 20 secondes
+                }
+            }
+        } else if (myRadio24User != null) {
+            metadataJob = scope.launch {
+                while (isActive) {
+                    try {
+                        val metadata = fetchMyRadio24Metadata(myRadio24User)
+                        currentMetadata = metadata
+                        withContext(Dispatchers.Main) {
+                            onMetadataUpdate?.invoke(metadata)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    delay(10000) // Vérifier toutes les 10 secondes (API légère)
                 }
             }
         } else if (aiirServiceId != null) {
@@ -410,6 +431,58 @@ class MetadataService {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    private suspend fun fetchMyRadio24Metadata(user: String): TrackMetadata? {
+        return withContext(Dispatchers.IO) {
+            try {
+                // API MyRadio24 pour Pink Unicorn et autres
+                val url = URL("https://myradio24.com/users/$user/status.json")
+                val connection = url.openConnection()
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.setRequestProperty("User-Agent", "RadioApp/1.0")
+
+                val jsonStr = connection.getInputStream().bufferedReader().use { it.readText() }
+                Log.d("MetadataService", "MyRadio24 response: $jsonStr")
+                val json = JSONObject(jsonStr)
+
+                val artist = json.optString("artist", "")
+                val title = json.optString("songtitle", "")
+                // Image en haute qualité si disponible, sinon standard
+                var coverPath = json.optString("imgbig", "")
+                if (coverPath.isEmpty() || coverPath == "img/nocover.jpg") {
+                    coverPath = json.optString("img", "")
+                }
+                
+                // Construire l'URL complète de l'image
+                val coverUrl = if (coverPath.isNotEmpty() && !coverPath.contains("nocover")) {
+                    "https://myradio24.com/$coverPath"
+                } else null
+
+                if (artist.isNotEmpty() && title.isNotEmpty()) {
+                    // Si pas d'image fournie par MyRadio24, fallback sur iTunes
+                    val finalCoverUrl = coverUrl ?: fetchCoverFromItunesPublic(artist, title)
+                    
+                    val bitmap = if (finalCoverUrl != null) {
+                        downloadImage(finalCoverUrl)
+                    } else null
+
+                    return@withContext TrackMetadata(
+                        title = title,
+                        artist = artist,
+                        album = null,
+                        coverUrl = finalCoverUrl,
+                        coverBitmap = bitmap,
+                        programUrl = null
+                    )
+                }
+                null
+            } catch (e: Exception) {
+                Log.e("MetadataService", "Error fetching MyRadio24 metadata", e)
                 null
             }
         }
