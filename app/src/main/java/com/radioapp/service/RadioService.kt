@@ -588,6 +588,10 @@ class RadioService : MediaBrowserServiceCompat() {
         updateNotification()
     }
 
+    fun getBufferedDuration(): Long {
+        return exoPlayer.totalBufferedDuration // Returns value in milliseconds
+    }
+
     fun stop() {
         // Sauvegarder les données consommées restantes avant de stopper
         if (currentStation != null && totalBytesReceived > lastSavedBytes) {
@@ -719,6 +723,7 @@ class RadioService : MediaBrowserServiceCompat() {
 
                     listener?.onError("Fast-forward terminé - reprise normale")
                     listener?.onBufferingUpdate(0)
+                    listener?.onPlaybackStateChanged(true) // Force update UI to Playing state
 
                 } catch (e: Exception) {
                     // En cas d'erreur, restaurer les paramètres normaux

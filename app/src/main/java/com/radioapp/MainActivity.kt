@@ -24,6 +24,7 @@ import com.radioapp.widget.RadioWidgetProvider
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.*
+import androidx.lifecycle.lifecycleScope
 
 class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
@@ -192,8 +193,12 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     // ... (rest of the file)
     
+    // Job pour la mise à jour des statistiques et de l'alarme
+    private var statsUpdateJob: Job? = null
+
     private fun startStatsUpdateTimer() {
-        scope.launch {
+        statsUpdateJob?.cancel()
+        statsUpdateJob = scope.launch {
             while (isActive) {
                 adapter.updateStats()
                 updateTotalStats()
@@ -214,21 +219,13 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                             now.minute == preStartTime.minute && 
                             now.second < 10) {
                             
-                            // On marque pas encore le jour comme traité car on doit attendre la minute suivante
-                            // Mais on utilise un flag local ou on vérifie si l'alarme est déjà en prépa ?
-                            // Simplification : on le fait une fois par jour grâce au check 'today'
-                            // ATTENTION: si on marque today ici, le check suivant (H pile) ne passera pas
-                            // Solution : utiliser un état intermédiaire ou juste checker l'heure
-                            
                             val currentStationId = radioService?.getCurrentStation()?.id
                             if (currentStationId != 2) {
                                 val franceCulture = radioStations.find { it.id == 2 }
                                 if (franceCulture != null) {
-                                     // Pour éviter de spammer prepareAlarm pendant les 10s, on pourrait ajouter un flag
-                                     // Mais prepareAlarm gère déjà le nettoyage
                                      withContext(Dispatchers.Main) {
                                          // On ne coupe PAS le son ici !
-                                         Toast.makeText(this@MainActivity, "Préparation du réveil (silence pub)...", Toast.LENGTH_LONG).show()
+                                         // Toast.makeText(this@MainActivity, "Préparation du réveil (silence pub)...", Toast.LENGTH_LONG).show()
                                          radioService?.prepareAlarm(franceCulture)
                                      }
                                      delay(11000) // Attendre pour sortir de la fenêtre de 10s
@@ -247,7 +244,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                             if (currentStationId != 2) {
                                 withContext(Dispatchers.Main) {
                                     radioService?.switchToAlarm()
-                                    Toast.makeText(this@MainActivity, "Réveil ! (Son rétabli)", Toast.LENGTH_LONG).show()
+                                    // Toast.makeText(this@MainActivity, "Réveil ! (Son rétabli)", Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
@@ -261,6 +258,11 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                 RadioWidgetProvider.updateWidget(this@MainActivity, currentStationId)
             }
         }
+    }
+
+    private fun stopStatsUpdateTimer() {
+        statsUpdateJob?.cancel()
+        statsUpdateJob = null
     }
     
     // ...
@@ -320,6 +322,20 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         if (serviceBound && radioService != null) {
             updateUIState()
         }
+        if (::statsManager.isInitialized && statsManager.isListening()) {
+            statsManager.resumeListening()
+        }
+        startStatsUpdateTimer()
+        startBufferUpdateTimer()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::statsManager.isInitialized) {
+            statsManager.pauseListening()
+        }
+        stopStatsUpdateTimer()
+        stopBufferUpdateTimer()
     }
 
     private fun handleWidgetIntent(intent: Intent?) {
@@ -336,10 +352,11 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         if (!radioService!!.isPlaying()) {
                             ensureServiceStarted()
                             radioService?.play()
+                            // Toast.makeText(this, "Reprise: ${station.name}", Toast.LENGTH_SHORT).show()
                             statsManager.resumeListening()
-                            Toast.makeText(this, "Reprise: ${station.name}", Toast.LENGTH_SHORT).show()
+                            // Toast.makeText(this, "Reprise: ${station.name}", Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(this, "Déjà en lecture: ${station.name}", Toast.LENGTH_SHORT).show()
+                            // Toast.makeText(this, "Déjà en lecture: ${station.name}", Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         // Nouvelle station, lancer normalement
@@ -376,7 +393,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             NOTIFICATION_PERMISSION_REQUEST_CODE -> {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     // Permission accordée
-                    Toast.makeText(this, "Notifications activées", Toast.LENGTH_SHORT).show()
+                    // Toast.makeText(this, "Notifications activées", Toast.LENGTH_SHORT).show()
                 } else {
                     // Permission refusée
                     Toast.makeText(
@@ -436,7 +453,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
         binding.btnSkipBuffer.setOnClickListener {
             radioService?.skipBuffer()
-            Toast.makeText(this, "Passage de la pub - rechargement du direct...", Toast.LENGTH_SHORT).show()
+            // Toast.makeText(this, "Passage de la pub - rechargement du direct...", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -618,7 +635,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             // Mettre à jour le widget avec la station en cours
             RadioWidgetProvider.updateWidget(this, station.id)
 
-            Toast.makeText(this, "Lecture: ${station.name}", Toast.LENGTH_SHORT).show()
+            // Toast.makeText(this, "Lecture: ${station.name}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -841,6 +858,38 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
     }
 
 
+
+    // Job pour la mise à jour du texte du bouton passer la pub
+    private var bufferUpdateJob: Job? = null
+
+    private fun startBufferUpdateTimer() {
+        stopBufferUpdateTimer() // Cancel previous job first
+        bufferUpdateJob = lifecycleScope.launch {
+            while (isActive) {
+                radioService?.let { service ->
+                    val bufferDurationMs = service.getBufferedDuration()
+                    
+                    if (bufferDurationMs > 3000) {
+                        val seconds = bufferDurationMs / 1000
+                        val text = getString(R.string.skip_buffer) + " (${seconds}s)"
+                        binding.btnSkipBuffer.text = text
+                    } else {
+                        binding.btnSkipBuffer.text = getString(R.string.skip_buffer)
+                    }
+                }
+                delay(1000)
+            }
+        }
+    }
+
+    private fun stopBufferUpdateTimer() {
+        bufferUpdateJob?.cancel()
+        bufferUpdateJob = null
+        // Reset text via main looper just in case
+        binding.root.post {
+            binding.btnSkipBuffer.text = getString(R.string.skip_buffer)
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
