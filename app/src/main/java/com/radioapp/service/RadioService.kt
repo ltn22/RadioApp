@@ -118,6 +118,13 @@ class RadioService : MediaBrowserServiceCompat() {
     // Chromecast support
     private var castManager: CastManager? = null
 
+    // Alarm management
+    private var isFranceCultureAlarmSet = false
+    private var alarmHour = 6
+    private var alarmMinute = 30
+    private var lastAlarmTriggerDay = -1
+    private var alarmMonitorJob: Job? = null
+
     // TransferListener pour compter les octets transférés
     private val transferListener = object : TransferListener {
         override fun onTransferInitializing(source: DataSource, dataSpec: DataSpec, isNetwork: Boolean) {}
@@ -159,6 +166,57 @@ class RadioService : MediaBrowserServiceCompat() {
         // Set the session token for Android Auto
         sessionToken = mediaSession.sessionToken
         // Don't start foreground here - will be done in play() to avoid Android 12+ restrictions
+        
+        // Start alarm monitor loop
+        startAlarmMonitor()
+    }
+
+    fun updateAlarmSettings(enabled: Boolean, hour: Int, minute: Int) {
+        Log.d(TAG, "Updating alarm settings: enabled=$enabled, time=$hour:$minute")
+        isFranceCultureAlarmSet = enabled
+        alarmHour = hour
+        alarmMinute = minute
+        
+        // Restart monitor if needed (though the loop checks the variables dynamically)
+        if (alarmMonitorJob == null || !alarmMonitorJob!!.isActive) {
+            startAlarmMonitor()
+        }
+    }
+
+    private fun startMetadataMonitoring(stationId: Int) {
+        // Arrêter le monitoring précédent
+        metadataService.stopMonitoring()
+
+        // Démarrer le monitoring des métadonnées riches
+        metadataService.onSearchStatus = { status ->
+            listener?.onSearchStatus(status)
+        }
+        metadataService.startMonitoring(stationId) { metadata ->
+            if (metadata != null) {
+                currentTrackTitle = if (metadata.artist.isNotBlank()) {
+                    "${metadata.artist} - ${metadata.title}"
+                } else {
+                    metadata.title
+                }
+
+                // Mettre à jour la session média avec la pochette
+                currentArtwork = metadata.coverBitmap
+                updateMediaSessionMetadata(metadata.coverBitmap)
+
+                // Synchroniser les métadonnées vers Chromecast si actif
+                updateMetadataOnCast(metadata)
+
+                // Notifier l'activité
+                listener?.onTrackMetadataChanged(metadata)
+
+                // Mettre à jour la notification
+                updateNotification()
+            } else {
+                // Reset si null (fin de morceau ou erreur)
+                // On garde le titre ICY s'il existe, sinon null
+                // updateMediaSessionMetadata() gère le fallback
+            }
+        }
     }
 
     private fun initializeCastManager() {
@@ -403,6 +461,68 @@ class RadioService : MediaBrowserServiceCompat() {
         startBufferMonitoring()
     }
 
+    private fun startAlarmMonitor() {
+        alarmMonitorJob?.cancel()
+        alarmMonitorJob = serviceScope.launch {
+            Log.d(TAG, "Alarm monitor started")
+            while (isActive) {
+                try {
+                    // Check every second
+                    delay(1000)
+
+                    // Vérifier l'heure pour le réveil France Culture
+                    if (isFranceCultureAlarmSet) {
+                        val now = java.time.LocalTime.now()
+                        val today = java.time.LocalDate.now().dayOfYear
+                        
+                        val targetTime = java.time.LocalTime.of(alarmHour, alarmMinute)
+                        // Démarrer 1 minute avant pour manger la pub
+                        val preStartTime = targetTime.minusMinutes(1)
+
+                        // Vérification robuste : fenêtre de 10 secondes et vérification du jour
+                        if (today != lastAlarmTriggerDay) {
+                             // 1. Préchargement à H-1 minute
+                            if (now.hour == preStartTime.hour && 
+                                now.minute == preStartTime.minute && 
+                                now.second < 10) {
+                                
+                                val currentStationId = currentStation?.id
+                                if (currentStationId != 2) {
+                                    val franceCulture = getAllStations().find { it.id == 2 }
+                                    if (franceCulture != null) {
+                                         withContext(Dispatchers.Main) {
+                                             Log.d(TAG, "ALARM PRE-TRIGGER: Preparing France Culture")
+                                             prepareAlarm(franceCulture)
+                                         }
+                                         delay(11000) // Attendre pour sortir de la fenêtre de 10s
+                                    }
+                                }
+                            }
+                            
+                            // 2. Bascule à H pile
+                            if (now.hour == targetTime.hour && 
+                                now.minute == targetTime.minute && 
+                                now.second < 10) {
+                                
+                                lastAlarmTriggerDay = today
+                                
+                                val currentStationId = currentStation?.id
+                                if (currentStationId != 2) {
+                                    withContext(Dispatchers.Main) {
+                                        Log.d(TAG, "ALARM TRIGGER: Switching to France Culture")
+                                        switchToAlarm()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in alarm monitor loop", e)
+                }
+            }
+        }
+    }
+
     private fun startBufferMonitoring() {
         serviceScope.launch {
             while (isActive) {
@@ -450,39 +570,8 @@ class RadioService : MediaBrowserServiceCompat() {
         currentTrackTitle = null
         currentArtwork = null
 
-        // Arrêter le monitoring précédent
-        metadataService.stopMonitoring()
-
-        // Démarrer le monitoring des métadonnées riches
-        metadataService.onSearchStatus = { status ->
-            listener?.onSearchStatus(status)
-        }
-        metadataService.startMonitoring(station.id) { metadata ->
-            if (metadata != null) {
-                currentTrackTitle = if (metadata.artist.isNotBlank()) {
-                    "${metadata.artist} - ${metadata.title}"
-                } else {
-                    metadata.title
-                }
-
-                // Mettre à jour la session média avec la pochette
-                currentArtwork = metadata.coverBitmap
-                updateMediaSessionMetadata(metadata.coverBitmap)
-
-                // Synchroniser les métadonnées vers Chromecast si actif
-                updateMetadataOnCast(metadata)
-
-                // Notifier l'activité
-                listener?.onTrackMetadataChanged(metadata)
-
-                // Mettre à jour la notification
-                updateNotification()
-            } else {
-                // Reset si null (fin de morceau ou erreur)
-                // On garde le titre ICY s'il existe, sinon null
-                // updateMediaSessionMetadata() gère le fallback
-            }
-        }
+        // Démarrer le monitoring des métadonnées
+        startMetadataMonitoring(station.id)
 
         // Démarrer le tracking des statistiques
         statsManager.startListening(station.id)
@@ -584,6 +673,10 @@ class RadioService : MediaBrowserServiceCompat() {
 
         updateMediaSessionState(false)
         listener?.onPlaybackStateChanged(false)
+        
+        // Mettre en pause le tracking des stats
+        statsManager.pauseListening()
+        
         // Ne pas annuler le timer en pause, car la session continue
         updateNotification()
     }
@@ -598,6 +691,9 @@ class RadioService : MediaBrowserServiceCompat() {
             val unsavedBytes = totalBytesReceived - lastSavedBytes
             statsManager.addDataConsumed(currentStation!!.id, unsavedBytes)
         }
+        
+        // Arrêter le tracking des stats
+        statsManager.stopListening()
 
         // Arrêter le monitoring des métadonnées
         metadataService.stopMonitoring()
@@ -630,6 +726,10 @@ class RadioService : MediaBrowserServiceCompat() {
         audioCodec = "N/A"
         currentTrackTitle = null
         currentArtwork = null
+
+        // Notifier l'UI de l'effacement des métadonnées
+        listener?.onMetadataChanged(null, null)
+        listener?.onTrackMetadataChanged(null)
 
         listener?.onPlaybackStateChanged(false)
         stopForeground(true)
@@ -692,8 +792,9 @@ class RadioService : MediaBrowserServiceCompat() {
     fun skipBuffer() {
         if (::exoPlayer.isInitialized && exoPlayer.isPlaying) {
             // Vérifier si un skipBuffer est déjà en cours
+            // Vérifier si un skipBuffer est déjà en cours
             if (isSkippingBuffer) {
-                listener?.onError("Fast-forward déjà en cours, veuillez patienter...")
+                Log.d(TAG, "Fast-forward déjà en cours, ignore.")
                 return
             }
 
@@ -702,30 +803,47 @@ class RadioService : MediaBrowserServiceCompat() {
                     isSkippingBuffer = true
 
                     // Stratégie : Fast-forward pour vider rapidement le buffer
-                    listener?.onError("Fast-forward en cours...")
+                    
+                    // 1. Obtenir la durée du buffer en ms
+                    val bufferDuration = exoPlayer.totalBufferedDuration
+                    Log.d(TAG, "skipBuffer: Buffer duration = ${bufferDuration}ms")
+                    
+                    if (bufferDuration < 1000) {
+                        Log.d(TAG, "Buffer vide ou presque vide - impossible de passer")
+                        return@launch
+                    }
+
+                    Log.d(TAG, "Avance rapide pour rattraper le direct...")
 
                     // 1. Couper le son pour le fast-forward silencieux
                     val originalVolume = exoPlayer.volume
-                    val originalPlaybackSpeed = exoPlayer.playbackParameters.speed
                     exoPlayer.volume = 0f
 
-                    // 2. Accélérer la lecture pour "consommer" le buffer rapidement
-                    // Speed 8x = 10 secondes de pub en 1.25 secondes
-                    exoPlayer.setPlaybackSpeed(8.0f)
+                    // 2. Accélérer la lecture
+                    // Speed 16x pour aller plus vite (si supporté, sinon ExoPlayer limitera)
+                    val speed = 16.0f
+                    exoPlayer.setPlaybackSpeed(speed)
 
-                    // 3. Laisser le fast-forward pendant 2 secondes
-                    // (= 16 secondes de contenu à vitesse normale)
-                    delay(2000)
+                    // 3. Calculer le temps d'attente
+                    // Temps = Durée à passer / Vitesse
+                    // On ajoute une petite marge de sécurité (+200ms) et on s'assure d'attendre au moins 500ms
+                    val waitTime = (bufferDuration / speed).toLong() + 200
+                    val finalWaitTime = waitTime.coerceAtLeast(500)
+                    
+                    Log.d(TAG, "skipBuffer: Waiting for ${finalWaitTime}ms at ${speed}x speed to consume ${bufferDuration}ms")
+                    
+                    delay(finalWaitTime)
 
                     // 4. Revenir à la vitesse normale et remettre le son
                     exoPlayer.setPlaybackSpeed(1.0f)
                     exoPlayer.volume = originalVolume
 
-                    listener?.onError("Fast-forward terminé - reprise normale")
+                    Log.d(TAG, "Direct rattrapé !")
                     listener?.onBufferingUpdate(0)
                     listener?.onPlaybackStateChanged(true) // Force update UI to Playing state
 
                 } catch (e: Exception) {
+                    Log.e(TAG, "Erreur lors du skipBuffer", e)
                     // En cas d'erreur, restaurer les paramètres normaux
                     try {
                         exoPlayer.setPlaybackSpeed(1.0f)

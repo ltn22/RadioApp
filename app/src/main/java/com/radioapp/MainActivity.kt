@@ -103,6 +103,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             radioService?.setListener(this@MainActivity)
             serviceBound = true
             updateUIState()
+            radioService?.updateAlarmSettings(isFranceCultureAlarmSet, alarmHour, alarmMinute)
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -177,6 +178,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             } else {
                 Toast.makeText(this, "Réveil désactivé", Toast.LENGTH_SHORT).show()
             }
+            radioService?.updateAlarmSettings(isFranceCultureAlarmSet, alarmHour, alarmMinute)
         }, {
             showTimeEditDialog()
         })
@@ -202,54 +204,6 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             while (isActive) {
                 adapter.updateStats()
                 updateTotalStats()
-                
-                // Vérifier l'heure pour le réveil France Culture
-                if (isFranceCultureAlarmSet) {
-                    val now = java.time.LocalTime.now()
-                    val today = java.time.LocalDate.now().dayOfYear
-                    
-                    val targetTime = java.time.LocalTime.of(alarmHour, alarmMinute)
-                    // Démarrer 1 minute avant pour manger la pub
-                    val preStartTime = targetTime.minusMinutes(1)
-
-                    // Vérification robuste : fenêtre de 10 secondes et vérification du jour
-                    if (today != lastAlarmTriggerDay) {
-                         // 1. Préchargement à H-1 minute
-                        if (now.hour == preStartTime.hour && 
-                            now.minute == preStartTime.minute && 
-                            now.second < 10) {
-                            
-                            val currentStationId = radioService?.getCurrentStation()?.id
-                            if (currentStationId != 2) {
-                                val franceCulture = radioStations.find { it.id == 2 }
-                                if (franceCulture != null) {
-                                     withContext(Dispatchers.Main) {
-                                         // On ne coupe PAS le son ici !
-                                         // Toast.makeText(this@MainActivity, "Préparation du réveil (silence pub)...", Toast.LENGTH_LONG).show()
-                                         radioService?.prepareAlarm(franceCulture)
-                                     }
-                                     delay(11000) // Attendre pour sortir de la fenêtre de 10s
-                                }
-                            }
-                        }
-                        
-                        // 2. Bascule à H pile
-                        if (now.hour == targetTime.hour && 
-                            now.minute == targetTime.minute && 
-                            now.second < 10) {
-                            
-                            lastAlarmTriggerDay = today
-                            
-                            val currentStationId = radioService?.getCurrentStation()?.id
-                            if (currentStationId != 2) {
-                                withContext(Dispatchers.Main) {
-                                    radioService?.switchToAlarm()
-                                    // Toast.makeText(this@MainActivity, "Réveil ! (Son rétabli)", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        }
-                    }
-                }
                 
                 delay(1000) // 1 seconde
 
@@ -289,6 +243,7 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                             alarmHour = h
                             alarmMinute = m
                             saveAlarmPrefs() // Sauvegarder la nouvelle heure
+                            radioService?.updateAlarmSettings(isFranceCultureAlarmSet, alarmHour, alarmMinute)
                             
                             val newTimeStr = String.format("%02d:%02d", alarmHour, alarmMinute)
                             adapter.alarmTimeText = newTimeStr
@@ -321,9 +276,8 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
         // (par exemple depuis la notification)
         if (serviceBound && radioService != null) {
             updateUIState()
-        }
-        if (::statsManager.isInitialized && statsManager.isListening()) {
-            statsManager.resumeListening()
+            // Sync alarm settings
+            radioService?.updateAlarmSettings(isFranceCultureAlarmSet, alarmHour, alarmMinute)
         }
         startStatsUpdateTimer()
         startBufferUpdateTimer()
@@ -331,9 +285,6 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
 
     override fun onPause() {
         super.onPause()
-        if (::statsManager.isInitialized) {
-            statsManager.pauseListening()
-        }
         stopStatsUpdateTimer()
         stopBufferUpdateTimer()
     }
@@ -413,20 +364,18 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             radioService?.let { service ->
                 ensureServiceStarted()
                 service.play()
-                service.getCurrentStation()?.let { station ->
-                    statsManager.resumeListening()
-                }
+                // service.getCurrentStation()?.let { station -> statsManager.resumeListening() } // Service handles stats
             }
         }
 
         binding.btnPause.setOnClickListener {
             radioService?.pause()
-            statsManager.pauseListening()
+            // statsManager.pauseListening() // Let the service handle stats
         }
 
         binding.btnStop.setOnClickListener {
             radioService?.stop()
-            statsManager.stopListening()
+            // statsManager.stopListening() // Let the service handle stats
             adapter.setCurrentPlayingStation(null)
 
             // Réinitialiser l'état local
@@ -762,6 +711,17 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                         binding.ivAlbumCover.visibility = android.view.View.GONE
                     }
                 }
+            } else {
+                // Si le titre est null ou vide, réinitialiser
+                binding.tvCurrentStation.text = "Radio App" // Ou le nom de la station si disponible
+                radioService?.getCurrentStation()?.let { station ->
+                    binding.tvCurrentStation.text = station.name
+                }
+                binding.ivAlbumCover.setImageBitmap(null)
+                binding.ivAlbumCover.visibility = android.view.View.GONE
+                currentMetadataTitle = null
+                currentProgramUrl = null
+                binding.tvProgramName.visibility = android.view.View.GONE
             }
         }
     }
@@ -788,6 +748,17 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
                 // Annuler le timer précédent
                 metadataResetJob?.cancel()
                 currentMetadataTitle = displayText
+            } else {
+                // Metadata null -> Réinitialiser
+                binding.tvCurrentStation.text = "Radio App"
+                radioService?.getCurrentStation()?.let { station ->
+                    binding.tvCurrentStation.text = station.name
+                }
+                binding.ivAlbumCover.setImageBitmap(null)
+                binding.ivAlbumCover.visibility = android.view.View.GONE
+                currentMetadataTitle = null
+                currentProgramUrl = null
+                binding.tvProgramName.visibility = android.view.View.GONE
             }
         }
     }

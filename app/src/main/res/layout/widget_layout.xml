@@ -2,88 +2,28 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
     android:background="#CC000000"
+    android:orientation="vertical"
     android:padding="4dp">
 
-    <!-- Station 1 -->
-    <LinearLayout
-        android:id="@+id/widget_station_1"
-        android:layout_width="0dp"
+    <GridView
+        android:id="@+id/widget_grid"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical"
+        android:columnWidth="60dp"
         android:gravity="center"
-        android:padding="2dp"
-        android:clickable="true"
-        android:focusable="true">
+        android:horizontalSpacing="4dp"
+        android:numColumns="auto_fit"
+        android:stretchMode="columnWidth"
+        android:verticalSpacing="4dp" />
 
-        <ImageView
-            android:id="@+id/widget_logo_1"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerInside"
-            android:contentDescription="Station 1" />
-    </LinearLayout>
-
-    <!-- Station 2 -->
-    <LinearLayout
-        android:id="@+id/widget_station_2"
-        android:layout_width="0dp"
+    <TextView
+        android:id="@+id/empty_view"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical"
         android:gravity="center"
-        android:padding="2dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <ImageView
-            android:id="@+id/widget_logo_2"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerInside"
-            android:contentDescription="Station 2" />
-    </LinearLayout>
-
-    <!-- Station 3 -->
-    <LinearLayout
-        android:id="@+id/widget_station_3"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="2dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <ImageView
-            android:id="@+id/widget_logo_3"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerInside"
-            android:contentDescription="Station 3" />
-    </LinearLayout>
-
-    <!-- Station 4 -->
-    <LinearLayout
-        android:id="@+id/widget_station_4"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="2dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <ImageView
-            android:id="@+id/widget_logo_4"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerInside"
-            android:contentDescription="Station 4" />
-    </LinearLayout>
+        android:text="Chargement..."
+        android:textColor="#FFFFFF"
+        android:visibility="gone" />
 
 </LinearLayout>

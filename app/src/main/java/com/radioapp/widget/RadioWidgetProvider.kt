@@ -121,77 +121,38 @@ class RadioWidgetProvider : AppWidgetProvider() {
         currentStationId: Int?
     ) {
         val views = RemoteViews(context.packageName, R.layout.widget_layout)
-        val statsManager = StatsManager.getInstance(context)
 
-        // Récupérer la station actuelle sauvegardée si non fournie
-        val actualCurrentStationId = currentStationId ?: run {
+        // Sauvegarder la station actuelle dans les prefs si fournie pour que le Factory la récupère
+        if (currentStationId != null) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val savedId = prefs.getInt(PREF_CURRENT_STATION, -1)
-            if (savedId != -1) savedId else null
+            prefs.edit().putInt(PREF_CURRENT_STATION, currentStationId).apply()
         }
 
-        // Récupérer les 3 stations les plus populaires (par playCount, puis par listeningTime)
-        val allStations = stationLogos.keys.toList()
-        val topStations = allStations
-            .sortedWith(compareByDescending<Int> { stationId ->
-                statsManager.getPlayCount(stationId)
-            }.thenByDescending { stationId ->
-                statsManager.getListeningTime(stationId)
-            })
-            .filter { it != actualCurrentStationId } // Exclure la station en cours
-            .take(3)
-
-        // Construire la liste des 4 stations à afficher
-        val displayStations = mutableListOf<Int>()
-
-        // 1. Station en cours (si elle existe)
-        if (actualCurrentStationId != null && stationLogos.containsKey(actualCurrentStationId)) {
-            displayStations.add(actualCurrentStationId)
+        // Configurer l'adapter pour la GridView
+        val intent = Intent(context, RadioWidgetService::class.java).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
         }
+        views.setRemoteAdapter(R.id.widget_grid, intent)
 
-        // 2. Compléter avec les top 3 (ou top 4 si pas de station en cours)
-        displayStations.addAll(topStations.take(4 - displayStations.size))
-
-        // 3. Si pas assez de stations, compléter avec les premières
-        if (displayStations.size < 4) {
-            allStations
-                .filter { it !in displayStations }
-                .take(4 - displayStations.size)
-                .forEach { displayStations.add(it) }
+        // Configurer le template de click pour les items de la liste
+        val clickIntentTemplate = Intent(context, RadioWidgetProvider::class.java).apply {
+            action = ACTION_PLAY_STATION
         }
-
-        // Configurer les 4 vues
-        val viewIds = listOf(
-            R.id.widget_station_1 to R.id.widget_logo_1,
-            R.id.widget_station_2 to R.id.widget_logo_2,
-            R.id.widget_station_3 to R.id.widget_logo_3,
-            R.id.widget_station_4 to R.id.widget_logo_4
+        val clickPendingIntentTemplate = PendingIntent.getBroadcast(
+            context,
+            0,
+            clickIntentTemplate,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
+        views.setPendingIntentTemplate(R.id.widget_grid, clickPendingIntentTemplate)
 
-        displayStations.take(4).forEachIndexed { index, stationId ->
-            val (containerViewId, logoViewId) = viewIds[index]
-            val logoResId = stationLogos[stationId] ?: R.drawable.ic_notification
+        // Gérer la vue vide
+        views.setEmptyView(R.id.widget_grid, R.id.empty_view)
 
-            // Définir le logo
-            views.setImageViewResource(logoViewId, logoResId)
-
-            // Créer l'intent pour lancer la station
-            val playIntent = Intent(context, RadioWidgetProvider::class.java).apply {
-                action = ACTION_PLAY_STATION
-                putExtra(EXTRA_STATION_ID, stationId)
-            }
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                stationId,
-                playIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            // Attacher l'intent au conteneur
-            views.setOnClickPendingIntent(containerViewId, pendingIntent)
-        }
-
-
+        // Notifier le changement de données pour que le Factory recharge et trie
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_grid)
+        
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 }
