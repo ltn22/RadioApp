@@ -27,6 +27,7 @@
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:src="@drawable/ic_radio"
+                android:scaleType="fitXY"
                 android:contentDescription="Logo de la radio" />
 
             <TextView

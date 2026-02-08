@@ -55,7 +55,13 @@ class RadioWidgetProvider : AppWidgetProvider() {
             30 to R.drawable.logo_refuge_worldwide_1,
             31 to R.drawable.logo_refuge_worldwide_2,
             32 to R.drawable.logo_fluxfm,
-            33 to R.drawable.logo_oe1
+            33 to R.drawable.logo_oe1,
+            34 to R.drawable.logo_radio_fg,
+            35 to R.drawable.logo_chicago_house,
+            36 to R.drawable.logo_bbc_radio4,
+            37 to R.drawable.logo_alpha_radio,
+            38 to R.drawable.logo_bbc_radio6,
+            39 to R.drawable.logo_kexp
         )
 
         fun updateWidget(context: Context, currentStationId: Int?) {

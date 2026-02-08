@@ -67,7 +67,14 @@ class MainActivity : AppCompatActivity(), RadioService.RadioServiceListener {
             RadioStation(33, "Ö1", "https://orf-live.ors-shoutcast.at/oe1-q2a", "Culture", R.drawable.logo_oe1),
             RadioStation(34, "Radio FG", "https://n22a-eu.rcs.revma.com/vb3b5749n98uv?rj-ttl=5&rj-tok=AAABm0auL_wAzWhDVQvr9opANA&CAID=202511231112549438454594", "Electro", R.drawable.logo_radio_fg),
             RadioStation(35, "Chicago House Radio", "https://stream.radio.co/sae989fe39/listen", "House", R.drawable.logo_chicago_house),
-            RadioStation(36, "BBC Radio 4", "http://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d96000.norewind.m3u8", "Talk", R.drawable.logo_bbc_radio4)
+            RadioStation(36, "BBC Radio 4", "http://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d96000.norewind.m3u8", "Talk", R.drawable.logo_bbc_radio4),
+            RadioStation(37, "Alpha Radio", "http://playerservices.streamtheworld.com/api/livestream-redirect/XHFAJ_FMAAC.m3u8", "Variety", R.drawable.logo_alpha_radio),
+            RadioStation(38, "BBC Radio 6 Music", "https://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=320000", "Alternative", R.drawable.logo_bbc_radio6),
+            RadioStation(39, "KEXP", "https://kexp-mp3-128.streamguys1.com/kexp128.mp3", "Alternative", R.drawable.logo_kexp),
+            RadioStation(40, "KCRW", "https://streams.kcrw.com/kcrw_mp3", "Eclectic", R.drawable.logo_kcrw),
+            RadioStation(41, "4ZZZ", "https://iheart.4zzz.org.au/4zzz", "Community", R.drawable.logo_4zzz),
+            RadioStation(42, "CKUA", "https://ais-sa1.streamon.fm/7000_48k.aac", "Eclectic", R.drawable.logo_ckua),
+            RadioStation(43, "Radio Paradise", "https://audio-geo.radioparadise.com/chan/0/x/1532/2/b/1532-0.m4a?ngsw-bypass=true", "Eclectic", R.drawable.logo_radio_paradise)
         )
 
         fun getAllRadioStations(): List<RadioStation> = radioStations

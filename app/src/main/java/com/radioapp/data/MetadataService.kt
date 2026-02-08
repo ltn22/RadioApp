@@ -53,7 +53,8 @@ class MetadataService {
         5 to "bbc_radio_three",    // BBC Radio 3
         7 to "bbc_radio_scotland_fm",  // BBC Radio Scotland
         10 to "bbc_radio_one",  // BBC Radio 1
-        36 to "bbc_radio_fourfm" // BBC Radio 4
+        36 to "bbc_radio_fourfm", // BBC Radio 4
+        38 to "bbc_6music" // BBC Radio 6
     )
 
     // Stations qui tentent de récupérer les métadonnées depuis web scraping
@@ -77,6 +78,11 @@ class MetadataService {
         "4425" to "https://www.soradiooman.com"  // So Radio Oman
     )
 
+    // Stations Radio Paradise (ID -> Channel ID)
+    private val radioParadiseStations = mapOf(
+        43 to "0"  // Radio Paradise Main Mix
+    )
+
     // Stations de radio directe sans metadata (affiche "En direct")
     private val liveOnlyStations = setOf<Int>(
         // Stations without any metadata service
@@ -93,9 +99,10 @@ class MetadataService {
         val scrapingKey = webScrapingStations[stationId]
         val myRadio24User = myRadio24Stations[stationId]
         val aiirServiceId = aiirStations[stationId]
+        val radioParadiseChannel = radioParadiseStations[stationId]
         val isLiveOnly = liveOnlyStations.contains(stationId)
 
-        Log.d("MetadataService", "Station checks: radioFrance=$radioFranceId, bbc=$bbcServiceId, scraping=$scrapingKey, myRadio24=$myRadio24User, aiir=$aiirServiceId, liveOnly=$isLiveOnly")
+        Log.d("MetadataService", "Station checks: radioFrance=$radioFranceId, bbc=$bbcServiceId, scraping=$scrapingKey, myRadio24=$myRadio24User, aiir=$aiirServiceId, rp=$radioParadiseChannel, liveOnly=$isLiveOnly")
 
         if (isLiveOnly) {
             // Pour les stations en direct sans métadonnées officielles
@@ -164,6 +171,21 @@ class MetadataService {
             }
         } else if (aiirServiceId != null) {
             connectToAIIRWebSocket(aiirServiceId)
+        } else if (radioParadiseChannel != null) {
+             metadataJob = scope.launch {
+                while (isActive) {
+                    try {
+                        val metadata = fetchRadioParadiseMetadata(radioParadiseChannel)
+                        currentMetadata = metadata
+                        withContext(Dispatchers.Main) {
+                            onMetadataUpdate?.invoke(metadata)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    delay(15000) // Vérifier toutes les 15 secondes
+                }
+            }
         }
     }
 
@@ -736,6 +758,47 @@ class MetadataService {
         } catch (e: Exception) {
             Log.e("MetadataService", "Error parsing AIIR metadata", e)
             null
+        }
+    }
+
+    private suspend fun fetchRadioParadiseMetadata(channelId: String): TrackMetadata? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL("https://api.radioparadise.com/api/now_playing?chan=$channelId")
+                val connection = url.openConnection()
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.setRequestProperty("User-Agent", "RadioApp/1.0")
+
+                val jsonStr = connection.getInputStream().bufferedReader().use { it.readText() }
+                val json = JSONObject(jsonStr)
+
+                val artist = json.optString("artist", "")
+                val title = json.optString("title", "")
+                val album = json.optString("album", "")
+                val coverUrl = json.optString("cover", "") // URL haute résolution
+
+                if (artist.isNotEmpty() || title.isNotEmpty()) {
+                    // Télécharger la pochette
+                    val bitmap = if (coverUrl.isNotEmpty() && coverUrl.startsWith("http")) {
+                        downloadImage(coverUrl)
+                    } else null
+
+                    return@withContext TrackMetadata(
+                        title = title,
+                        artist = artist,
+                        album = album.ifEmpty { null },
+                        coverUrl = coverUrl.ifEmpty { null },
+                        coverBitmap = bitmap,
+                        programUrl = null
+                    )
+                }
+                null
+            } catch (e: Exception) {
+                Log.e("MetadataService", "Error fetching Radio Paradise metadata", e)
+                e.printStackTrace()
+                null
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 # RadioApp 📻
 
-Application Android de streaming radio avec 36 stations internationales, **support Android Auto**, statistiques d'écoute détaillées, widget et **fonctions de réveil avancées**.
+Application Android de streaming radio avec 43 stations internationales, **support Android Auto**, statistiques d'écoute détaillées, widget et **fonctions de réveil avancées**.
 
 ## 📱 Fonctionnalités
 
@@ -19,13 +19,14 @@ Application Android de streaming radio avec 36 stations internationales, **suppo
 - **Gestion audio automatique** : focus audio géré intelligemment
 - **Action personnalisée** : bouton "Passer pub" accessible depuis l'interface Android Auto
 
-### 🎵 Stations de Radio (36)
+### 🎵 Stations de Radio (43)
 - **France** : France Inter, France Culture, France Info, France Musique, FIP, RTL, Radio Nova, RFI, RAJE, Bide et Musique, Radio Meuh
-- **BBC** : Radio 1, Radio 3, Radio 4, Radio Scotland, World Service
+- **BBC** : Radio 1, Radio 3, Radio 4, Radio 6 Music, Radio Scotland, World Service
 - **Electronic/Underground** : NTS 1, NTS 2, dublab, Cashmere Radio, Rinse FM, Refuge Worldwide 1 & 2, Ibiza Global Radio, Ibiza Live Radio, Radio FG, Chicago House Radio
-- **Alternative/Eclectic** : FluxFM, Le Mellotron
-- **International** : Radio Canada Première, So! Radio Oman, WWOZ (New Orleans), Radio Caroline, Ö1 (Austria)
+- **Alternative/Eclectic** : FluxFM, Le Mellotron, **KEXP** (Seattle)
+- **International** : Radio Canada Première, So! Radio Oman, WWOZ (New Orleans), Radio Caroline, Ö1 (Austria), **KCRW** (Santa Monica), **CKUA** (Alberta), **4ZZZ** (Brisbane), **Alpha Radio** (Mexico)
 - **Rock/Metal** : 97 Underground, Pink Unicorn Radio
+- **Eclectic** : **Radio Paradise**
 
 ### 📊 Statistiques Complètes
 - **Nombre de lectures** par station
@@ -168,8 +169,14 @@ Ce projet a été créé à des fins éducatives et personnelles.
 
 ---
 
-**Version actuelle** : 1.3
-**Dernière mise à jour** : Janvier 2026
+**Version actuelle** : 1.4
+**Dernière mise à jour** : Février 2026
+
+### 🆕 Nouveautés version 1.4
+- ✅ **4 Nouvelles Stations** : KCRW, 4ZZZ, CKUA, Radio Paradise, Alpha Radio, BBC 6 Music, KEXP (Total 43)
+- ✅ **Métadonnées Radio Paradise** : Affichage pochette/titre/artiste via API
+- ✅ Optimisation des logos pour éviter les crashs (redimensionnement)
+- ✅ Amélioration de la stabilité
 
 ### 🆕 Nouveautés version 1.3
 - ✅ **Réveil France Culture** : Fonctionnalité d'alarme avec saut de publicité
